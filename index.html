@@ -1,0 +1,1436 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Statistical Machine Learning</title>
+  <meta charset="utf-8">
+  <meta name="description" content="Statistical Machine Learning">
+  <meta name="author" content="Matthew Alger">
+  <meta name="generator" content="slidify" />
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta http-equiv="X-UA-Compatible" content="chrome=1">
+  <link rel="stylesheet" href="libraries/frameworks/io2012/css/default.css" media="all" >
+  <link rel="stylesheet" href="libraries/frameworks/io2012/css/phone.css" 
+    media="only screen and (max-device-width: 480px)" >
+  <link rel="stylesheet" href="libraries/frameworks/io2012/css/slidify.css" >
+  <link rel="stylesheet" href="libraries/highlighters/prettify/css/tomorrow.css" />
+  <base target="_blank"> <!-- This amazingness opens all links in a new tab. -->  <link rel=stylesheet href="libraries/widgets/bootstrap/css/bootstrap.css"></link>
+<link rel=stylesheet href="./assets/css/ribbons.css"></link>
+
+  
+  <!-- Grab CDN jQuery, fall back to local if offline -->
+  <script src="http://ajax.aspnetcdn.com/ajax/jQuery/jquery-1.7.min.js"></script>
+  <script>window.jQuery || document.write('<script src="libraries/widgets/quiz/js/jquery.js"><\/script>')</script> 
+  <script data-main="libraries/frameworks/io2012/js/slides" 
+    src="libraries/frameworks/io2012/js/require-1.0.8.min.js">
+  </script>
+  
+  
+
+</head>
+<body style="opacity: 0">
+  <slides class="layout-widescreen">
+    
+    <!-- LOGO SLIDE -->
+        <slide class="title-slide segue nobackground">
+  <hgroup class="auto-fadein">
+    <h1>Statistical Machine Learning</h1>
+    <h2>Dimensionality reduction and Regularization for Linear Regression</h2>
+    <p>Matthew Alger<br/></p>
+  </hgroup>
+    <a href="https://github.com/Malger5000/Presentations/zipball/gh-pages" class="example">
+     Download
+    </a>
+  <article></article>  
+</slide>
+    
+
+    <!-- SLIDES -->
+    <slide class="" id="slide-1" style="background:;">
+  <hgroup>
+    <h2>Background: Anatomy and Function</h2>
+  </hgroup>
+  <article data-timings="">
+    <p><div class="columns-2">
+  <img src="C:/Users/Matthew%20Alger/Documents/Data%20Science/Statistical%20Machine%20Learning/slidify_slides/mydeck/Prostatelead.jpg" alt="Prostatelead"></p>
+
+<ul>
+<li>A gland specific only to males and is vital to overall wellness and sexual health</li>
+<li>Urine excrement via urethra</li>
+<li>Production of seminal fluid via seminal vesical</li>
+<li>A shrowd or capsule covering the prostate </li>
+</ul>
+
+  </article>
+  <!-- Presenter Notes -->
+</slide>
+
+<slide class="" id="slide-2" style="background:;">
+  <hgroup>
+    <h2>Background: Prostate specific antigen (PSA)</h2>
+  </hgroup>
+  <article data-timings="">
+    <p>PSA is a proteins produced by prostate cell and measured as nano-grams per milliliter of a subjects
+blood. </p>
+
+<p>Factors which may effeft PSA levels include:</p>
+
+<ul>
+<li>ethnicity</li>
+<li>sexual activity</li>
+<li>prostate weight and growth which is naturally linked to aging process.</li>
+<li>benign prostatic hyperplasia (BPA): leading form of noncancerous tumors found in men</li>
+<li>prostate carcinoma (cancer)</li>
+</ul>
+
+  </article>
+  <!-- Presenter Notes -->
+</slide>
+
+<slide class="" id="slide-3" style="background:;">
+  <hgroup>
+    <h2>Background: Prostate Cancer</h2>
+  </hgroup>
+  <article data-timings="">
+    <p><div class="columns-2">
+<img src="C:/Users/Matthew%20Alger/Documents/Data%20Science/Statistical%20Machine%20Learning/slidify_slides/mydeck/Gleason-Grading-System.jpg" alt=""></p>
+
+<p>Biopsy results are investigated for carcinoma differenciation and a Gleason Score (1-5) is assigned. The most proment scores are summed to give the Gleason Grade (2-10).</p>
+
+<p>3-Tier system:</p>
+
+<ul>
+<li>GG &lt; 6 not considered</li>
+<li>GG = 6 indicates minor differentiation</li>
+<li>GG = 7 indicates moderate differentiation</li>
+<li>8 \(\leq\) GG \(\leq\) 10 is considered highest level of differentiation</li>
+</ul>
+
+  </article>
+  <!-- Presenter Notes -->
+</slide>
+
+<slide class="" id="slide-4" style="background:;">
+  <hgroup>
+    <h2>Background: Stage 3 cancer</h2>
+  </hgroup>
+  <article data-timings="">
+    <p>When the carcinoma extends beyond the prostate capsule, this is referred to as stage three cancer, which is sub-divided into three categories:</p>
+
+<ol>
+<li>T3a capsulary penetration (cp) of one side of the prostate</li>
+<li>T3b penetration of both sides of the prostate</li>
+<li>T3c penetration into the seminal vesicle or seminal vasical invasion (svi)</li>
+</ol>
+
+  </article>
+  <!-- Presenter Notes -->
+</slide>
+
+<slide class="" id="slide-5" style="background:;">
+  <hgroup>
+    <h2>Data: Predictors of PSA-levels</h2>
+  </hgroup>
+  <article data-timings="">
+    <ul>
+<li>volume of a cancer tumor (cavol)</li>
+<li>weight of the prostate (weight)</li>
+<li>measure of benign prostatic hyperplasia (bph)</li>
+<li>age of the subject (age)</li>
+<li>percentage of samples with Gleason grades from 4 to 5 (pgg45)</li>
+<li>amount of capillary penetration (cp)</li>
+<li>indication if any seminal vesicle invasion (svi)</li>
+<li>gleason grade from biopsy (gg)</li>
+</ul>
+
+  </article>
+  <!-- Presenter Notes -->
+</slide>
+
+<slide class="" id="slide-6" style="background:;">
+  <hgroup>
+    <h2>Data:</h2>
+  </hgroup>
+  <article data-timings="">
+    <p>As proposed by Hastie et. al., from the view point of function approximation there are infinitely many such functions to choose from [1].Therefore, some constraint, based on the analyst&#39;s belief, is useful in determining \(\hat{f}\).</p>
+
+<p>Therefore, some constraint, based on the analyst&#39;s belief, is useful in constructing \(\hat{f}\). Here we state assumptions: the belief that </p>
+
+<ul>
+<li>\(\hat{f}\) is:
+
+<ul>
+<li>linear in its parameters </li>
+<li>linear in its inputs/covariates/features which are independent of one another</li>
+</ul></li>
+<li>\(\hat{f}\) is stochastic due to random error which:
+
+<ul>
+<li>is additive</li>
+<li>has a Gaussian distrubution with mean value = 0, and constant variance</li>
+<li>are not correlated to the conditional prediction space \(\hat{y}\)</li>
+</ul></li>
+</ul>
+
+  </article>
+  <!-- Presenter Notes -->
+</slide>
+
+<slide class="" id="slide-7" style="background:;">
+  <hgroup>
+    <h2>Data: Transformations</h2>
+  </hgroup>
+  <article data-timings="">
+    <p><div class="columns-2"></p>
+
+<p><img src="figure/unnamed-chunk-2-1.png" alt="plot of chunk unnamed-chunk-2"></p>
+
+<p>To ensure Normality of residuals, the <em>target</em> variable is transformed into a more symetric probability density.</p>
+
+<p>To ensure linearity, explanitory features are also transformed.</p>
+
+<p>All features have been considered for such tranformation. Results are summarized on next slide.</p>
+
+  </article>
+  <!-- Presenter Notes -->
+</slide>
+
+<slide class="" id="slide-8" style="background:;">
+  <hgroup>
+    <h2>Data: Summary Post Transformation</h2>
+  </hgroup>
+  <article data-timings="">
+    <table style="text-align:center"><tr><td colspan="7" style="border-bottom: 1px solid black"></td></tr><tr><td style="text-align:left">Statistic</td><td>N</td><td>Mean</td><td>St. Dev.</td><td>Min</td><td>Median</td><td>Max</td></tr>
+<tr><td colspan="7" style="border-bottom: 1px solid black"></td></tr><tr><td style="text-align:left">lpsa</td><td>96</td><td>2.482</td><td>1.160</td><td>-0.431</td><td>2.592</td><td>5.583</td></tr>
+<tr><td style="text-align:left">lcavol</td><td>96</td><td>1.349</td><td>1.185</td><td>-1.347</td><td>1.453</td><td>3.821</td></tr>
+<tr><td style="text-align:left">lweight</td><td>96</td><td>3.629</td><td>0.431</td><td>2.375</td><td>3.614</td><td>4.780</td></tr>
+<tr><td style="text-align:left">age</td><td>96</td><td>63.771</td><td>7.425</td><td>41</td><td>65</td><td>79</td></tr>
+<tr><td style="text-align:left">lbph</td><td>96</td><td>0.107</td><td>1.457</td><td>-1.386</td><td>0.369</td><td>2.326</td></tr>
+<tr><td style="text-align:left">lcp</td><td>96</td><td>-0.199</td><td>1.393</td><td>-1.386</td><td>-0.799</td><td>2.904</td></tr>
+<tr><td style="text-align:left">pgg45</td><td>96</td><td>24.479</td><td>28.336</td><td>0</td><td>15</td><td>100</td></tr>
+<tr><td colspan="7" style="border-bottom: 1px solid black"></td></tr></table>
+
+<table style="text-align:center"><tr><td colspan="5" style="border-bottom: 1px solid black"></td></tr><tr><td style="text-align:left"></td><td>svi</td><td>Freq</td><td>gleason</td><td>Freq.1</td></tr>
+<tr><td colspan="5" style="border-bottom: 1px solid black"></td></tr><tr><td style="text-align:left">1</td><td>0</td><td>75</td><td>6</td><td>35</td></tr>
+<tr><td style="text-align:left">2</td><td>1</td><td>21</td><td>7</td><td>56</td></tr>
+<tr><td style="text-align:left">3</td><td></td><td></td><td>9</td><td>5</td></tr>
+<tr><td colspan="5" style="border-bottom: 1px solid black"></td></tr></table>
+
+  </article>
+  <!-- Presenter Notes -->
+</slide>
+
+<slide class="" id="slide-9" style="background:;">
+  <hgroup>
+    <h2>Methods: Predictive Models</h2>
+  </hgroup>
+  <article data-timings="">
+    <p>Define a data set by pairs \((x_1,y_1),(x_2, y_2),\dots,(x_n, y_n)\) where each row vector \(x_i\) is a collection of feature measurements given by \((x_{i,1}, x_{i,2},\dots,x_{i,p})^T\), for p features. With a subset of the data learn a statistical model and validate its predictive ability with the remaining data.</p>
+
+<p>-True function <em>f</em> which maps \(x_i \rightarrow y_i\) is unknowable
+\[\begin{align}
+&& f(x_i) &= y_i &&\nonumber\\
+&& &= E(y_i|x_i)  + \varepsilon_i &&\nonumber\\
+\mathit{and\;the\;true\;error\;becomes} && \varepsilon_i &= y_i - E(y_i|x_i) && \hspace{.5in}for\, i = 1,2,\dots,n &&
+\end{align}\]
+-Estimator function also maps \(x_i \rightarrow y_i\) but can be learned
+\[\begin{align}
+&& \hat{f}(x_i) &= y_i &&\nonumber\\
+&& &= \hat{y}_i + \epsilon_i &&\nonumber\\
+\mathit{so\;error\;estimator\;becomes} &&  \epsilon_i &= y_i - \hat{y}_i \hspace{.5in}for\, i = 1,2,\dots,n &&
+\end{align}\]</p>
+
+  </article>
+  <!-- Presenter Notes -->
+</slide>
+
+<slide class="" id="slide-10" style="background:;">
+  <hgroup>
+    <h2>Criterion: Residual Sum of Squares</h2>
+  </hgroup>
+  <article data-timings="">
+    <p>Summing error differences is non informative and not mathematically tractible. Therefore, squared error can be minimized.</p>
+
+<p>\[\begin{align}
+\operatorname*{arg\,min\,} RSS(f) & = \operatorname*{arg\,min}_f  \lvert\lvert \pmb{\epsilon} \rvert\rvert^2 \nonumber\\
+& = \operatorname*{arg\,min}_f \lvert\lvert\pmb{Y} - E(\pmb{Y} | \pmb{X}^*)\rvert\rvert^2 \nonumber\\
+&=  \sum_{i=1}^n(y_i - \hat{y}_i)^2
+\end{align}\]</p>
+
+<ul>
+<li>Result of minimization is the Classical Gaussian model</li>
+</ul>
+
+  </article>
+  <!-- Presenter Notes -->
+</slide>
+
+<slide class="" id="slide-11" style="background:;">
+  <hgroup>
+    <h2>Criterion: Pros and Cons</h2>
+  </hgroup>
+  <article data-timings="">
+    <p>Pros</p>
+
+<ul>
+<li>The shortest \(l_2\) distance between observation \(y_i\) and prediction/projection \(\hat{y}_i\)
+
+<ul>
+<li>Asymptotically unbiased</li>
+<li>Out of all unbiased estimates, has the least variance during parameter estimation</li>
+<li>May be well suited in a controlled experimental environment</li>
+</ul></li>
+</ul>
+
+<p>Cons </p>
+
+<ul>
+<li>RSS decreases monotonically as the number of features increase therefore
+
+<ul>
+<li>RSS is not appropriate for variable selection</li>
+<li>May result in an overly complex bloted model </li>
+<li>May result in a model with poor prediction of newly encountered data (extrapolation)</li>
+</ul></li>
+</ul>
+
+  </article>
+  <!-- Presenter Notes -->
+</slide>
+
+<slide class="" id="slide-12" style="background:;">
+  <hgroup>
+    <h2>Criterion: Expected Prediction Error</h2>
+  </hgroup>
+  <article data-timings="">
+    <p>Bias is intimaley related to expected test error for an unlearned test point \(y_0\):</p>
+
+<p>\[\begin{align}
+E(\lvert\lvert \pmb{\varepsilon}_0 \rvert\rvert^2) &= \sigma_\varepsilon^2 + \{E(\hat{y}_0) - y_0\}^2 + E\{(\hat{y}_0- E(\hat{y}_{0}))^2\}\\
+&= Irreducible\; Error + Squared\; Bias + Variance
+\end{align}\]</p>
+
+<p>Perhaps bias may be inserted into the model in exchange for a relatively larger reduction in variance explained by the model: the bias-variance trade off.</p>
+
+  </article>
+  <!-- Presenter Notes -->
+</slide>
+
+<slide class="" id="slide-13" style="background:;">
+  <hgroup>
+    <h2>Criterion: Root Mean Squared Error (RMSE)</h2>
+  </hgroup>
+  <article data-timings="">
+    <p>To measure test error calculate the root of the average RSS over T test points.</p>
+
+<p>\[\begin{align}
+RMSE(f) &= \sqrt{\frac{1}{T}\sum_{t=1}^T(y_t - \hat{y}_t)^2}\quad && for\; t=1,2,\dots,T\; test\; point(s).
+\end{align}\]</p>
+
+<p>The goal of a prediction model is to provide extrapolation which are resonible, on average. Therefore we should minimize this quantity (instead of RSS) by choosing tuning parameters based on this RMSE instead of RSS. </p>
+
+<p>Problem: Test data is not used to train a model, only to evaluate it.</p>
+
+<p>Solution: Hold out some training data and try to estimate the RMSE iteratively</p>
+
+  </article>
+  <!-- Presenter Notes -->
+</slide>
+
+<slide class="" id="slide-14" style="background:;">
+  <hgroup>
+    <h2>Criterion: Cross Validated Root Mean Squared Error</h2>
+  </hgroup>
+  <article data-timings="">
+    <p>Repeated random k-fold cross validation is used to both select variables as well as insert bias inorder improve prediction error.</p>
+
+<p>\[{\small  
+  \begin{align}
+    &&\mathit{CV-}RMSE(\hat{f}) &= \sqrt{E[(y_{n_k} - \hat{y}_k)^2]} &&     \mathit{for\,the\,k^{th}\,holdout\,fold\, x_k}&&\\
+    && &= \sqrt{\frac{1}{n_k}\sum_{j=1}^{n_k}(y_j - \hat{y}_{k,j})^2} && \mathit{for\, j = 1,2,\dots,\,n_k\, holdout\, points}\, (x_j, y_j)&&
+  \end{align}
+}%\]</p>
+
+<ol>
+<li>Randomly partition data into k-folds of nearly equal size.</li>
+<li>Train a model on k-1 folds.</li>
+<li>Uses the \(k^{th}\)-fold to calculate the RMSE by (6).</li>
+<li>Repeat steps 2-4 until data has been trained and tested on all k-folds.</li>
+<li>Find the average RMSE over k repetitions.</li>
+<li>Repeat steps 1-4 for some number of iterations and collect the RMSE for each run.</li>
+<li>Calculate the average RMSE over each run, and select the model which is within one standard error of the minimum RMSE (see one-se rule below).</li>
+</ol>
+
+  </article>
+  <!-- Presenter Notes -->
+</slide>
+
+<slide class="" id="slide-15" style="background:;">
+  <hgroup>
+    <h2>Criterion: One Standarad Error Rule</h2>
+  </hgroup>
+  <article data-timings="">
+    <p>&quot;Take the simplest (most regularized) model whose [cross-validated prediction] error is within one standard error of the minimal error. (Ryan Tibshirani)&quot; </p>
+
+<p>The &quot;rule&quot; was originated by Breiman et al (1984) in the text <em>Classification and Regression Trees</em>.</p>
+
+<p>Has been emplimented along side of cross-validation by:</p>
+
+<ul>
+<li>J. Friedman a coauthor of <em>Elements of Statistical Learning</em></li>
+<li>Tibshirani data mining lectures at Carnegie Mellon University</li>
+<li>Max Kuhn from Pfizer Global R&amp;D, within <em>The Caret Package</em></li>
+</ul>
+
+  </article>
+  <!-- Presenter Notes -->
+</slide>
+
+<slide class="" id="slide-16" style="background:;">
+  <hgroup>
+    <h2>Ordinary Least Squares and Gaussian Regression</h2>
+  </hgroup>
+  <article data-timings="">
+    <p>Matrix notation makes it easy! Let \(\pmb{y}\) be the vector of realization of the random vector \(\pmb{Y}\). Then let the collection of row vectors \(\pmb{x}_i\) be the data matrix \(\pmb{X}\) for \(i = 1,2,\dots,n\) rows and \(j=1,2,\dots,p\) rows.</p>
+
+<div style='float:left;width:48%;' class='centered'>
+  <h3>Gausian/OLS Model</h3>
+
+<p>\[{\small
+\begin{align}
+\pmb{Y} &= E(\pmb{Y}|\pmb{X}^*) + \pmb{\varepsilon}\\
+&= \pmb{X}\pmb{\beta} + \pmb{\varepsilon}\nonumber \\
+so\;that\hspace{10pt}\pmb{\varepsilon} &= \pmb{Y} - \pmb{X}\pmb{\beta}\\
+\end{align}
+}%\]</p>
+
+<p>For an idealized random parameter \(\pmb{\beta} = [\beta_1\;\beta_2\;\dots\;\beta_p]\) which is never known.</p>
+
+</div>
+<div style='float:right;width:48%;'>
+  <h3>The Learned Function</h3>
+
+<p>\[{\small
+\begin{align}
+\pmb{y} & = \pmb{X} \hat{\pmb{\beta}} + \pmb{\epsilon}\\
+ & = \pmb{X}(\pmb{X}^{T}\pmb{X})^{-1}\pmb{X}^{T}\pmb{y} + \pmb{\epsilon}\\
+ so\;that\hspace{10pt}\pmb{\epsilon}&=\pmb{y} - \pmb{X}(\pmb{X}^{T}\pmb{X})^{-1}\pmb{X}^{T}\pmb{y}
+\end{align}
+}%\]</p>
+
+<p>For parameter estimate:</p>
+
+<p>\[{\small
+\begin{align}
+\hat{\pmb{\beta}}^{ols} &= \operatorname*{arg\,min}_\beta RSS(\pmb{\varepsilon})\nonumber\nonumber\\
+& = \operatorname*{arg\,min}_\beta \{(\pmb{Y}-\pmb{X\beta})^T(\pmb{Y}-\pmb{X\beta})\}\nonumber\\
+&= (\pmb{X}^{T}\pmb{X})^{-1}\pmb{X}^{T}\pmb{y}
+\end{align}
+}%\]</p>
+
+</div>
+  </article>
+  <!-- Presenter Notes -->
+</slide>
+
+<slide class="" id="slide-17" style="background:;">
+  <hgroup>
+    <h2>Tuning OLS Models</h2>
+  </hgroup>
+  <article data-timings="">
+    <p>Since there is no internal mechanism for variable selection we may choose:</p>
+
+<ul>
+<li><p>Best-subset selection</p>
+
+<ul>
+<li>computationally expensive</li>
+<li>impractical when number of features is much larger than around 40</li>
+<li>not mathematically tractible and standard errors are not obtainable</li>
+<li>indexed by a single parameter \(\lambda\) = model size</li>
+<li>may result is a high variance model with very low bias</li>
+</ul></li>
+<li><p>Forward-Stepwise Selection</p>
+
+<ul>
+<li>Begin with the Null model and a variable if criterion is not improved drop it.
+
+<ul>
+<li>This constraint will induce a bias-variance trade off</li>
+</ul></li>
+<li>May never obtain the &quot;best&quot; model found by best-subset selection</li>
+<li>Can always be emplimented even for very wide data sets</li>
+</ul></li>
+</ul>
+
+  </article>
+  <!-- Presenter Notes -->
+</slide>
+
+<slide class="" id="slide-18" style="background:;">
+  <hgroup>
+    <h2>Tuning OLS Models Cont...</h2>
+  </hgroup>
+  <article data-timings="">
+    <ul>
+<li>Backward-Stepwise selection
+
+<ul>
+<li>Begins with the full set of variables</li>
+<li>Works backward dropping the variable which with the most extreme impact on the criterion</li>
+<li>May only be used when obsevations are greater than the number of parameters</li>
+</ul></li>
+</ul>
+
+<p>\[{\small
+\begin{align}
+\textit{All methods suffer from a lack of mathematical tractibility as standard errors are not accurate.}
+\end{align}
+}%\]</p>
+
+<p>Classical Linear regression has no mechanism to account for bias.  However, bias may enter the model:</p>
+
+<ul>
+<li><p>via omitted variable bias (OVB): the omission of correlated (but relevent) features by a particular variable selction criterion or handpicking</p></li>
+<li><p>inflating the estimate of the residual standard error, \(\hat{\sigma}\)</p></li>
+</ul>
+
+  </article>
+  <!-- Presenter Notes -->
+</slide>
+
+<slide class="" id="slide-19" style="background:;">
+  <hgroup>
+    <h2>Cross-Validation with Best Subset Regression</h2>
+  </hgroup>
+  <article data-timings="">
+    <p>Since the goal is to learn a function which will minimize the prediction error and not necessarily RSS, the following cross-validation strategy is performed:</p>
+
+<ol>
+<li>Randomly divide the training data into k = 10 folds.</li>
+<li>Take k-1 folds and perform best-subset selection.</li>
+<li>Take each best sub-model of size \(lambda\) and predict the hold out data in the \(k^{th}\)-fold and collect the RMSE for each best model.</li>
+<li>Rotate folds, repeat steps 2-3 until all folds are considers for testing and training. </li>
+<li>Average the \(RMSE\) over the folds.</li>
+<li>Repeat steps 1-5 for m = 10 times then calculate the average of average \(RMSE\) over the repetitions.</li>
+</ol>
+
+  </article>
+  <!-- Presenter Notes -->
+</slide>
+
+<slide class="" id="slide-20" style="background:;">
+  <hgroup>
+    <h2>Cross-Validation with Best Subset Regression</h2>
+  </hgroup>
+  <article data-timings="">
+    <p>Advantages</p>
+
+<ul>
+<li>Acurately collection of standard errors</li>
+<li>Every point may not be used to train the model due to randomization of fold assignments
+
+<ul>
+<li>Good training for a test of how well a model predicts random data</li>
+</ul></li>
+</ul>
+
+<p>Disadvantages</p>
+
+<ul>
+<li>Very computaionally expensive however our data set is small
+
+<ul>
+<li>The best subset step(2) could be replaced by stepwise selection if p were large. </li>
+</ul></li>
+</ul>
+
+  </article>
+  <!-- Presenter Notes -->
+</slide>
+
+<slide class="" id="slide-21" style="background:;">
+  <hgroup>
+    <h2>Results of cross validation</h2>
+  </hgroup>
+  <article data-timings="">
+    <table style="text-align:center"><caption><strong>Cross Validated RMSE</strong></caption>
+<tr><td colspan="10" style="border-bottom: 1px solid black"></td></tr><tr><td style="text-align:left">Rep.Id</td><td>1</td><td>2</td><td>3</td><td>4</td><td>5</td><td>6</td><td>7</td><td>8</td><td>9</td></tr>
+<tr><td colspan="10" style="border-bottom: 1px solid black"></td></tr><tr><td style="text-align:left">9</td><td>0.7642</td><td>0.73</td><td>0.7633</td><td>0.7914</td><td>0.8513</td><td>0.8301</td><td>0.7906</td><td>0.7501</td><td>0.7434</td></tr>
+<tr><td style="text-align:left">10</td><td>0.8063</td><td>0.7041</td><td>0.7625</td><td>0.8295</td><td>0.8176</td><td>0.7814</td><td>0.7932</td><td>0.7512</td><td>0.7516</td></tr>
+<tr><td style="text-align:left">Average</td><td>0.8091</td><td>0.7477</td><td>0.7674</td><td>0.7914</td><td>0.8156</td><td>0.8163</td><td>0.7925</td><td>0.7466</td><td>0.7412</td></tr>
+<tr><td colspan="10" style="border-bottom: 1px solid black"></td></tr></table>
+
+<div style='float:left;width:48%;' class='centered'>
+  <h3>Observations</h3>
+
+<ul>
+<li>The full model minimizes test error at 0.7412108</li>
+<li>The least complex and minimal test error has only 2 features</li>
+<li>How to justify the choice when we clearly stated we wish to minimize expected prediction error?</li>
+</ul>
+
+</div>
+<div style='float:right;width:48%;'>
+  <h3>Expected RMSE</h3>
+
+<p><img src="figure/unnamed-chunk-6-1.png" alt="plot of chunk unnamed-chunk-6"></p>
+
+</div>
+  </article>
+  <!-- Presenter Notes -->
+</slide>
+
+<slide class="" id="slide-22" style="background:;">
+  <hgroup>
+    <h2>Application of the One-Se Rule</h2>
+  </hgroup>
+  <article data-timings="">
+    <p>Recall:
+&quot;Take the simplest (most regularized) model whose [cross-validated prediction] error is within one standard error of the minimal error. (Ryan Tibshirani)&quot;</p>
+
+<table style="text-align:center"><caption><strong>Cross Validation Standard Error</strong></caption>
+<tr><td colspan="10" style="border-bottom: 1px solid black"></td></tr><tr><td style="text-align:left"></td><td>1</td><td>2</td><td>3</td><td>4</td><td>5</td><td>6</td><td>7</td><td>8</td><td>9</td></tr>
+<tr><td colspan="10" style="border-bottom: 1px solid black"></td></tr><tr><td style="text-align:left">E(RMSE)</td><td>0.8091</td><td>0.7477</td><td>0.7674</td><td>0.7914</td><td>0.8156</td><td>0.8163</td><td>0.7925</td><td>0.7466</td><td>0.7412</td></tr>
+<tr><td style="text-align:left">Std Err</td><td>0.2192</td><td>0.2195</td><td>0.2112</td><td>0.2275</td><td>0.2506</td><td>0.2208</td><td>0.2192</td><td>0.2196</td><td>0.2189</td></tr>
+<tr><td colspan="10" style="border-bottom: 1px solid black"></td></tr></table>
+
+<ol>
+<li><p>The minimized E(RMSE) is in column 9 and becomes the lower bound = 0.7412108</p></li>
+<li><p>The upper bound is then 0.7412 + 0.2189 = 0.9601</p></li>
+<li><p>So range of the One-SE rule is (0.7412, 0.9601). </p></li>
+</ol>
+
+<p>Only models 9,8,2 are within this range and the least complex is model 2. This technique is easy to automate when standard errors are accurate and available, as is the case for cross-validation.</p>
+
+  </article>
+  <!-- Presenter Notes -->
+</slide>
+
+<slide class="" id="slide-23" style="background:;">
+  <article data-timings="">
+    <table style="text-align:center"><tr><td colspan="3" style="border-bottom: 1px solid black"></td></tr><tr><td style="text-align:left"></td><td>Full Mod</td><td>CV-Best Subset</td></tr>
+<tr><td style="text-align:left">lcavol</td><td>0.711<sup>***</sup> (0.441, 0.981)</td><td>0.786<sup>***</sup> (0.591, 0.981)</td></tr>
+<tr><td style="text-align:left">lweight</td><td>0.310<sup>***</sup> (0.100, 0.521)</td><td>0.355<sup>***</sup> (0.160, 0.550)</td></tr>
+<tr><td style="text-align:left">age</td><td>-0.166 (-0.365, 0.033)</td><td></td></tr>
+<tr><td style="text-align:left">lbph</td><td>0.194<sup>*</sup> (-0.012, 0.401)</td><td></td></tr>
+<tr><td style="text-align:left">lcp</td><td>-0.342<sup>**</sup> (-0.670, -0.014)</td><td></td></tr>
+<tr><td style="text-align:left">pgg45</td><td>0.326<sup>*</sup> (-0.026, 0.678)</td><td></td></tr>
+<tr><td style="text-align:left">svi</td><td>0.707<sup>**</sup> (0.109, 1.305)</td><td></td></tr>
+<tr><td style="text-align:left">gleason7</td><td>0.183 (-0.388, 0.754)</td><td></td></tr>
+<tr><td style="text-align:left">gleason9</td><td>-0.497 (-1.798, 0.803)</td><td></td></tr>
+<tr><td style="text-align:left">Constant</td><td>2.213<sup>***</sup> (1.794, 2.632)</td><td>2.457<sup>***</sup> (2.272, 2.642)</td></tr>
+<tr><td colspan="3" style="border-bottom: 1px solid black"></td></tr><tr><td style="text-align:left">RMSE</td><td>0.7668</td><td>0.7418</td></tr>
+<tr><td style="text-align:left">R<sup>2</sup></td><td>0.712</td><td>0.616</td></tr>
+<tr><td style="text-align:left">Adjusted R<sup>2</sup></td><td>0.666</td><td>0.604</td></tr>
+<tr><td style="text-align:left">Residual Std. Error</td><td>0.703 (df = 56)</td><td>0.766 (df = 63)</td></tr>
+<tr><td colspan="3" style="border-bottom: 1px solid black"></td></tr><tr><td style="text-align:left"><em>Note:</em></td><td colspan="2" style="text-align:right"><sup>*</sup>p<0.1; <sup>**</sup>p<0.05; <sup>***</sup>p<0.01</td></tr>
+</table>
+
+  </article>
+  <!-- Presenter Notes -->
+</slide>
+
+<slide class="" id="slide-24" style="background:;">
+  <hgroup>
+    <h2>Low Feature Variance and Pameter Uncertainty</h2>
+  </hgroup>
+  <article data-timings="">
+    <p>The variance in parameter estimate \(\hat{\beta_i}\) is inversely proportional to feature variance \(V(x_j)\).</p>
+
+<p>Consider the sigular value decomposition \(SVD(\pmb{X})=\pmb{U D V^{T}}\), for orthogonal matices \(\pmb{U}\) and \(\pmb{V}\). The left and right singular vectors which span the columns (features) and rows (measurements) of <strong>X</strong>, respectively. \(\pmb{D}\) is a p by p matrix with eigen values along the main diagonal and all other entries = 0.</p>
+
+<div style='float:left;width:48%;' class='centered'>
+  <h3>Covariance of \(\pmb{X}\)</h3>
+
+<p>\[{\small
+\begin{align}
+Var(\pmb{X}) &= COV(\pmb{X},\pmb{X})\nonumber\\
+&\propto \pmb{X}^{T}\pmb{X}\nonumber\\
+&= \pmb{(U D V^{T})^{T}}\pmb{U D V^{T}}\\
+&= \pmb{V D^{2} V^{T}}
+\end{align}
+}%\]</p>
+
+<p>Where the elements along the diagonal of \(\pmb{D}\) are \(d_i^2 = (\pmb{x}_j - E(\pmb{x}_j))^2\), the \(Var(\pmb{x_j})\), for \(j=1,2,\dots,p}\).</p>
+
+</div>
+<div style='float:right;width:48%;'>
+  <h3>Variance of parameter \({\hat{\pmb{\beta}}}\)</h3>
+
+<p>\[{\small
+\begin{align}
+Var(\hat{\pmb{\beta}}) &= \sigma^2(\pmb{X}^T\pmb{X})^{-1}\\
+&= \sigma^2(\pmb{(U D V^{T})^{T}}\pmb{U D V^{T}})^{-1}\\
+&= \sigma^2 \pmb{V} \pmb{D}^{-2} \pmb{V}^T, \quad for \; some \; constant \; \sigma^2
+\end{align}
+}%\]</p>
+
+<p>When \(Var(x_j) = d_i^2\) is small the variance and thus uncertainty in choosing \(\beta_i\) is dramatically inflated. Therefore, features with low variance causes instability when choosing parameters.</p>
+
+</div>
+  </article>
+  <!-- Presenter Notes -->
+</slide>
+
+<slide class="" id="slide-25" style="background:;">
+  <hgroup>
+    <h3>Variance Inflation Factor and Multicollinearity</h3>
+  </hgroup>
+  <article data-timings="">
+    <p>A measure of parameter&#39;s variance is inflated is given by variance inflation factor:</p>
+
+<p>\[{\small
+\begin{align}
+VIF_j &= \sum_{i=1}^p (\frac{v_{i,j}}{d_j})^2
+\end{align}
+}%\]</p>
+
+<ul>
+<li><p>In the extreme case of no multicolleanarity the numerator \(v_{i,j}^2 = 1\) and variance inflation is controlled by \(Var(x_i)\)</p></li>
+<li><p>As collinearity increases between the \(j^th\) feature and the other \(j-1\) features, the numerator increases quadratically and inflates the \(Var(\beta_i)\) for a fixed numerator</p></li>
+<li><p>Suggest VIF may be confounded as a measure of multicollinearity if both numerator and denominator are large, but have similar values.</p></li>
+</ul>
+
+  </article>
+  <!-- Presenter Notes -->
+</slide>
+
+<slide class="" id="slide-26" style="background:;">
+  <hgroup>
+    <h2>Results: Variance Inflation</h2>
+  </hgroup>
+  <article data-timings="">
+    <p>\(GVIF^{\frac{1}{2*Df}}\) represents the factor by which the solution ellipse of \(\beta_j\) has been inflated. Variance inflation is within the acceptable \(ranges<2\)</p>
+
+<table style="text-align:center"><caption><strong>Generalized Variance Inflation Factors</strong></caption>
+<tr><td colspan="9" style="border-bottom: 1px solid black"></td></tr><tr><td style="text-align:left"></td><td>lcavol</td><td>lweight</td><td>age</td><td>lbph</td><td>lcp</td><td>pgg45</td><td>svi</td><td>gleason</td></tr>
+<tr><td colspan="9" style="border-bottom: 1px solid black"></td></tr><tr><td style="text-align:left">GVIF</td><td>2.494</td><td>1.513</td><td>1.358</td><td>1.456</td><td>3.683</td><td>4.248</td><td>2.182</td><td>3.674</td></tr>
+<tr><td style="text-align:left">Df</td><td>1</td><td>1</td><td>1</td><td>1</td><td>1</td><td>1</td><td>1</td><td>2</td></tr>
+<tr><td style="text-align:left">GVIFDf))</td><td>1.579</td><td>1.230</td><td>1.166</td><td>1.207</td><td>1.919</td><td>2.061</td><td>1.477</td><td>1.385</td></tr>
+<tr><td colspan="9" style="border-bottom: 1px solid black"></td></tr></table>
+
+  </article>
+  <!-- Presenter Notes -->
+</slide>
+
+<slide class="" id="slide-27" style="background:;">
+  <hgroup>
+    <h2>Results: Multicollinearity</h2>
+  </hgroup>
+  <article data-timings="">
+    <p>However, its seems correlation between features are moderate to high.</p>
+
+<p><img src="figure/unnamed-chunk-10-1.png" alt="plot of chunk unnamed-chunk-10"></p>
+
+  </article>
+  <!-- Presenter Notes -->
+</slide>
+
+<slide class="" id="slide-28" style="background:;">
+  <hgroup>
+    <h2>Principal Components Regression (pcr)</h2>
+  </hgroup>
+  <article data-timings="">
+    <p>Let the data \(\pmb{X}\) be centered and scaled to have variance = 1. Project the data onto orthogonal directions which maximize the \(Var(\pmb{X})\), and regress \(\pmb{y}\) onto these directions.</p>
+
+<ul>
+<li>Let left singular vectors of the covariance matrix \(\pmb{V D^{2} V^{T}}\) be &quot;principal directions&quot; \(\pmb{V}\).</li>
+<li>Let \(\pmb{Z} = \pmb{UD}\) be the principal components (&quot;scores&quot;), were \(\pmb{U}\) is orthonormal and endowed with the the square root of the eigen-values \(D\) </li>
+</ul>
+
+<div style='float:left;width:48%;' class='centered'>
+  <p><img src="file:///C:/Users/Matthew%20Alger/Documents/Data%20Science/Statistical%20Machine%20Learning/slidify_slides/mydeck/image_05.gif" alt="image_05"></p>
+
+</div>
+<div style='float:right;width:48%;'>
+  <ul>
+<li>Also \(\pmb{Z} = \pmb{XV}\) represents the projection of the data \(\pmb{X}\) onto the principal directions \(\pmb{V}\)</li>
+<li>If the columns of \(\pmb{Z}\) are reordered so \(\lvert\lvert z_1 \rvert\rvert \geq \lvert\lvert z_2 \rvert\rvert \geq \dots \lvert\lvert z_p \rvert\rvert\), then \(z_1\) has the largest variance out of all other principal components.</li>
+</ul>
+
+</div>
+  </article>
+  <!-- Presenter Notes -->
+</slide>
+
+<slide class="" id="slide-29" style="background:;">
+  <hgroup>
+    <h2>Pros and Cons</h2>
+  </hgroup>
+  <article data-timings="">
+    <h3>Pros</h3>
+
+<ul>
+<li>This removes the variance inflation caused by multicollinearity.</li>
+</ul>
+
+<h3>Cons</h3>
+
+<ul>
+<li>Interpretations are complicated but coeficients w.r.t \(\pmb{x}\) can be recoverd.</li>
+<li>Doen&#39;t combat the effects of features with low variation since:</li>
+</ul>
+
+<p>\[{\small
+\begin{align}
+Var(\hat{\beta}_j^{pc}) &= \frac{\sigma^2}{d_j^2} &\propto \frac{1}{Var[x_j]}\\
+\end{align}
+}%\]</p>
+
+<p>Solution: Use cross-validation to choose how many principal components are needed to minimize the prediction error and complexity.</p>
+
+<p>Further considerations: \(textit{pcr}\) is Y-unaware. Directions were chosen to maximize the \(Var(\pmb{x})\) and the target \(\pmb{y}\) may not covary in this direction.</p>
+
+  </article>
+  <!-- Presenter Notes -->
+</slide>
+
+<slide class="" id="slide-30" style="background:;">
+  <hgroup>
+    <h2>Partial Least Squares Regression (plsr)</h2>
+  </hgroup>
+  <article data-timings="">
+    <ul>
+<li><p>Very similar to \(\textit{pcr}\)</p>
+
+<ul>
+<li>scale invariant and requires standardization prior</li>
+<li>uses principal components and values (eigenvalues)</li>
+</ul></li>
+<li><p>Principal directions are chosen to maximize the \(Cov(\pmb{X},\pmb{y})\) iteratively:</p></li>
+</ul>
+
+<ol>
+<li>Singular Value Decomposition of \(\pmb{X}^T\pmb{y} = \pmb{UDV}^T\)</li>
+<li>Obtain scores 
+i) \(\pmb{s}_i <= \pmb{Au}_i\) initialize with \(\pmb{A} = \pmb{X}\) 
+i) \(\pmb{t}_i <= \pmb{Bv}_i\) initialize with \(\pmb{B} = \pmb{Y}\)</li>
+<li>Obtain loadings
+i) \(\pmb{p}_i <= \pmb{A}^T\pmb{x}\)
+i) \(\pmb{q}_i <= \pmb{B}^T\pmb{y}\)</li>
+<li>Partial out 
+i) \(\pmb{A}_{i+1} <= \pmb{A}_{i}-\pmb{sp}^T\)
+i) \(\pmb{B}_{i+1} <= \pmb{B}_{i}-\pmb{tp}^T\)</li>
+</ol>
+
+<p>Repeat steps 2-4 for \(\mathit{i = 2,3,\dots,p}\) or until \(\pmb{A}\) becomes a null matrix. Once the <em>n</em> by <em>p</em> score matrix is constructed a final multiple regression is performed by regressing the target on score \pmb{S}, and regression coefficients \(\pmb{\theta}\) collected. Then as a final step the coeficients w.r.t. \(\pmb{X}\) can be obtained by \(\hat{\pmb{\beta}} = \pmb{P}\hat{\pmb{\theta}}\).</p>
+
+  </article>
+  <!-- Presenter Notes -->
+</slide>
+
+<slide class="" id="slide-31" style="background:;">
+  <article data-timings="">
+    
+<div style='float:left;width:48%;' class='centered'>
+  
+</div>
+<div style='float:right;width:48%;'>
+  
+</div>
+  </article>
+  <!-- Presenter Notes -->
+</slide>
+
+<slide class="" id="slide-32" style="background:;">
+  <hgroup>
+    <h2>Summary: pcr Vs. plsr</h2>
+  </hgroup>
+  <article data-timings="">
+    <table style="text-align:center"><tr><td colspan="7" style="border-bottom: 1px solid black"></td></tr><tr><td style="text-align:left"></td><td>Components</td><td>X.var</td><td>Y.var</td><td>E(RMSE)</td><td>SE(RMSE)</td><td>RMSE</td></tr>
+<tr><td colspan="7" style="border-bottom: 1px solid black"></td></tr><tr><td style="text-align:left">pcr</td><td>2</td><td>0.563</td><td>0.560</td><td>0.646</td><td>0.183</td><td>0.779</td></tr>
+<tr><td style="text-align:left">plsr</td><td>1</td><td>0.370</td><td>0.590</td><td>0.638</td><td>0.186</td><td>0.691</td></tr>
+<tr><td colspan="7" style="border-bottom: 1px solid black"></td></tr></table>
+
+  </article>
+  <!-- Presenter Notes -->
+</slide>
+
+<slide class="" id="slide-33" style="background:;">
+  <hgroup>
+    <h2>Recovering Coeficients wrt Original Data</h2>
+  </hgroup>
+  <article data-timings="">
+    <table style="text-align:center"><tr><td colspan="3" style="border-bottom: 1px solid black"></td></tr><tr><td style="text-align:left"></td><td>pcr</td><td>plsr</td></tr>
+<tr><td style="text-align:left">`Comp 1`</td><td>0.466<sup>***</sup> (0.358, 0.574)</td><td>0.523<sup>***</sup> (0.416, 0.630)</td></tr>
+<tr><td style="text-align:left">`Comp 2`</td><td>-0.232<sup>***</sup> (-0.386, -0.077)</td><td></td></tr>
+<tr><td style="text-align:left">Constant</td><td>2.457<sup>***</sup> (2.259, 2.655)</td><td>2.457<sup>***</sup> (2.267, 2.646)</td></tr>
+<tr><td colspan="3" style="border-bottom: 1px solid black"></td></tr><tr><td style="text-align:left">Residual Std. Error</td><td>0.820 (df = 63)</td><td>0.785 (df = 64)</td></tr>
+<tr><td colspan="3" style="border-bottom: 1px solid black"></td></tr></table>
+
+<p>Coeficients wrt origianal data can be constructed by weighting parameters above by the loadings \(\pmb{P}\) (correlation of x to each principal direction) or: \(\hat{\pmb{\beta}} = \pmb{P}\hat{\pmb{\theta}}\).</p>
+
+<table style="text-align:center"><caption><strong>Coefficient Summary for Dim Redux</strong></caption>
+<tr><td colspan="11" style="border-bottom: 1px solid black"></td></tr><tr><td style="text-align:left"></td><td>(Intercept)</td><td>lcavol</td><td>lweight</td><td>age</td><td>lbph</td><td>lcp</td><td>pgg45</td><td>svi1</td><td>gleason7</td><td>gleason9</td></tr>
+<tr><td colspan="11" style="border-bottom: 1px solid black"></td></tr><tr><td style="text-align:left">pcr</td><td>2.457</td><td>0.215</td><td>0.207</td><td>0.200</td><td>0.168</td><td>0.174</td><td>0.161</td><td>0.155</td><td>0.182</td><td>0.013</td></tr>
+<tr><td style="text-align:left">plsr</td><td>2.457</td><td>0.248</td><td>0.136</td><td>0.130</td><td>0.062</td><td>0.237</td><td>0.208</td><td>0.218</td><td>0.187</td><td>0.041</td></tr>
+<tr><td colspan="11" style="border-bottom: 1px solid black"></td></tr></table>
+
+  </article>
+  <!-- Presenter Notes -->
+</slide>
+
+<slide class="" id="slide-34" style="background:;">
+  <hgroup>
+    <h2>Regularization</h2>
+  </hgroup>
+  <article data-timings="">
+    <p>Dimnsionality reduction methods like <em>ols</em>, <em>pcr</em>, and <em>plsr</em> have no internal mechanism to deal with latent features with low variation (only multicollinearity) and the solution is to remove them.</p>
+
+<ul>
+<li><p>Main Points:</p>
+
+<ul>
+<li>Eigenvalues of of the correlation matrix of standardized features are the magnetudes of of the \(Var(\pmb{X})\)</li>
+<li>Regularization methods use the principal components from \(\textit{pcr}\) as a basis for inputs.</li>
+<li>Then we add one more step: shrink predictions \(\hat{\pmb{y}}\) by a magnetude relative to the eigenvalue corresponding to those directions.</li>
+<li>The parameter controlling the shrinkage is adaptively selected via cross-validation</li>
+</ul></li>
+<li><p>From optimization this can be seen as a penalization of the RSS
+-further constrainting the optimal minimized RSS will result is a larger RSS</p></li>
+</ul>
+
+  </article>
+  <!-- Presenter Notes -->
+</slide>
+
+<slide class="" id="slide-35" style="background:;">
+  <hgroup>
+    <h2>Ridge Regression</h2>
+  </hgroup>
+  <article data-timings="">
+    <h3>Penalizing RSS</h3>
+
+<p>Penalize the RSS by the \(l_2\)-norm
+\[\begin{align}
+RSS(\hat{\pmb{\beta}}^{rr}) &= \operatorname*{arg\,min}_\beta \{\sum_{i=1}^n (y_{i}-\beta_{0}-\sum_{j=1}^px_{i,j}\beta_{j})^2 + \lambda \sum_{j=1}^p \beta_{j}^2 \}
+\end{align}\]</p>
+
+<h3>Optimization</h3>
+
+<p>Constrain the optimal objective function value by \(l_2\)-norm</p>
+
+<p>\[\begin{align}
+RSS(\hat{\pmb{\beta}}^{rr}) &= \operatorname*{arg\,min}_\beta \{\sum_{i=1}^n (y_{i}-\beta_{0}-\sum_{j=1}^px_{i,j}\beta_{j})^2\}, \hspace{5 pt} \textit{s.t.,}\hspace{5 pt}  \sum_{j=1}^p \beta_{j}^2 \leq t
+\end{align}\]</p>
+
+  </article>
+  <!-- Presenter Notes -->
+</slide>
+
+<slide class="" id="slide-36" style="background:;">
+  <hgroup>
+    <h3>How does it work?</h3>
+  </hgroup>
+  <article data-timings="">
+    <p>Simply put, add the same constaint \(\lambda\) to each eigen value: bias the model.</p>
+
+<p>\[{\small
+\begin{align}
+\hat{\pmb{y}} &= \pmb{X}\pmb{\beta}^{r}\nonumber\\
+&= \pmb{X}(\pmb{X}^{T}\pmb{X} + \lambda I)^{-1}\pmb{X}^{T}\pmb{y}\nonumber\\
+&= \pmb{U}\pmb{D}\pmb{V}^T  (\pmb{V}\pmb{D}^{2}\pmb{V}^{T}+ \lambda I)^{-1}  (\pmb{U}\pmb{D}\pmb{V}^T)^T\pmb{y}\nonumber\\
+&= \pmb{U}\pmb{D}\pmb{V}^T  \pmb{V}(\pmb{D}^{2} + \lambda I)^{-1}\pmb{V}^{T} \pmb{V}\pmb{D}\pmb{U}^T\pmb{y}\nonumber\\
+&= \pmb{U}\pmb{D}(\pmb{D}^{2} + \lambda I)^{-1}\pmb{D}\pmb{U}^T\pmb{y}\\
+&= \sum_{j=1}^p \pmb{u}_{j} \frac{d_{j}^2}{d_{j}^2 + \lambda}\pmb{u}_{j}^T\pmb{y}
+\end{align}
+}%\]</p>
+
+<p>Ridge regression shrinks the coordinates of the unbiased-<em>ols</em> solutions, \(\pmb{U}^T\pmb{y}\),  by a factor:</p>
+
+<p>\[{\small
+\begin{equation}
+0 \leq \frac{d_{j}^2}{d_{j}^2 + \lambda} \leq 1
+\end{equation}
+}%\]</p>
+
+  </article>
+  <!-- Presenter Notes -->
+</slide>
+
+<slide class="" id="slide-37" style="background:;">
+  <hgroup>
+    <h3>Variance of Ridge Regression Parameters</h3>
+  </hgroup>
+  <article data-timings="">
+    <p>ridge parameters may be rewritten as:</p>
+
+<p>\[{\small
+\begin{equation}
+\pmb{\beta}_j^r =  \frac{d_{j}}{d_{j}^2 + \lambda}\pmb{u}_{j}^T\pmb{y}
+\end{equation}
+}%\]</p>
+
+<p>Parameter variance can easily be derived as:</p>
+
+<p>\[\small{
+\begin{align}
+Var(\pmb{\beta}_j^r) &=  \frac{\sigma^2}{d_{j}^2 + \lambda}\\
+&\propto \frac{1}{Var[x_j] + \lambda}
+\end{align}
+}%\]</p>
+
+<p>This is precisely the variance of \(\textit{pca}\) parameters with a tuning parameter in the denomominator.</p>
+
+<ul>
+<li>The effects of multicolinearity are avoided due to orthogonal inputs: numerator = 1</li>
+<li>And variance inflation due to low variance features can be adjusted.</li>
+</ul>
+
+  </article>
+  <!-- Presenter Notes -->
+</slide>
+
+<slide class="" id="slide-38" style="background:;">
+  <hgroup>
+    <h2>Lasso Regression</h2>
+  </hgroup>
+  <article data-timings="">
+    <h3>Penalizing RSS</h3>
+
+<p>Penalize the minimized RSS by the \(l_2\)-norm</p>
+
+<p>\[\small{
+\begin{align}
+\hat{\pmb{\beta}}^{lasso} &= \operatorname*{arg\,min}_\beta \{\frac{1}{2}\sum_{i=1}^n (y_{i}-\beta_{0}-\sum_{j=1}^px_{i,j}\beta_{j})^2 + \lambda \sum_{j=1}^p \lvert \beta_{j} \rvert \}\\
+\end{align}
+}%\]</p>
+
+<h3>Optimization</h3>
+
+<p>Constrain the optimal objective function value by \(l_1\)-norm</p>
+
+<p>\[\small{
+\begin{align}
+\hat{\pmb{\beta}}^{lasso}&= \operatorname*{arg\,min}_\beta \{\sum_{i=1}^n (y_{i}-\beta_{0}-\sum_{j=1}^px_{i,j}\beta_{j})^2\}, \hspace{5 pt} \textit{s.t.,}\hspace{5 pt}  \sum_{j=1}^p \lvert \beta_{j} \rvert \leq t
+\end{align}
+}%\]</p>
+
+<ul>
+<li>A quadratic (nonlinear) programming problem.</li>
+<li>A modified Least Angle Regression (LAR) algorithm is use to compute the Lasso Path efficiently.</li>
+</ul>
+
+  </article>
+  <!-- Presenter Notes -->
+</slide>
+
+<slide class="" id="slide-39" style="background:;">
+  <hgroup>
+    <h3>Pros and Cons</h3>
+  </hgroup>
+  <article data-timings="">
+    <ul>
+<li><p>Ridge regression shrinks the coeffients of collinear variables toward each other and has a grouping effect due to the \(l_2\) penalty.</p></li>
+<li><p>Lasso somewhat arbitrarily selects one in a set of collinear variables for the greatest shrinkage; however, it can perform variable selection.</p></li>
+</ul>
+
+<div style='float:left;width:48%;' class='centered'>
+  <p><img src="C:/Users/Matthew%20Alger/Documents/Data%20Science/Statistical%20Machine%20Learning/slidify_slides/mydeck/lasso_vs_ridge_regression1.png" alt=""></p>
+
+</div>
+<div style='float:right;width:48%;'>
+  <ul>
+<li>For 2 parameters (feature coefficients) the feasible region is a diamond.</li>
+<li>The feasible region for parameters is a romboid in higher dimensional space</li>
+<li>If solution falls on a sharp (non-differentiable) vertices the parameter&#39;s value = 0, </li>
+</ul>
+
+</div>
+  </article>
+  <!-- Presenter Notes -->
+</slide>
+
+<slide class="" id="slide-40" style="background:;">
+  <hgroup>
+    <h2>Elastic Net Regression</h2>
+  </hgroup>
+  <article data-timings="">
+    <p>A generalization of both ridge and lasso regression takes convex combinations of each penalty.</p>
+
+<p>Penalize the minimized RSS by convex combinations of each constraint</p>
+
+<p>\[{\small
+\begin{align}
+\hat{\pmb{\beta}}^{lasso} &= \{ \operatorname*{arg\,min}_\beta \sum_{i=1}^n (y_{i}-\beta_{0}-\sum_{j=1}^px_{i,j}\beta_{j})^2 + \lambda_1 \sum_{j=1}^p \lvert \beta_{j} \rvert +\lambda_2 \sum_{j=1}^p \lvert \beta_{j} \lvert^2 \}
+\end{align}
+}%\]</p>
+
+<p>Letting  \(\alpha = \frac{\lambda_1}{\lambda_1 + \lambda_2}\), for non-negative \(\lambda\) coefficients, we obtain the standard optimization problem</p>
+
+<p>\[{\small
+\begin{align}
+&= \operatorname*{arg\,min}_\beta \{\sum_{i=1}^n (y_{i}-\beta_{0}-\sum_{j=1}^px_{i,j}\beta_{j})^2\}\\
+& \textit{s.t.,}\hspace{5 pt}  \alpha\sum_{j=1}^p \lvert \beta_{j} \rvert + (1-\alpha)\sum_{j=1}^p \lvert \beta_{j} \rvert^2 \leq t, \hspace{5 pt} for \;0 \leq \alpha \leq 1.
+\end{align}
+}%\]</p>
+
+  </article>
+  <!-- Presenter Notes -->
+</slide>
+
+<slide class="" id="slide-41" style="background:;">
+  <article data-timings="">
+    <table style="text-align:center"><caption><strong>Regularized Vs. MLE Coefficients</strong></caption>
+<tr><td colspan="11" style="border-bottom: 1px solid black"></td></tr><tr><td style="text-align:left"></td><td>(Intercept)</td><td>lcavol</td><td>lweight</td><td>age</td><td>lbph</td><td>lcp</td><td>pgg45</td><td>svi1</td><td>gleason7</td><td>gleason9</td></tr>
+<tr><td colspan="11" style="border-bottom: 1px solid black"></td></tr><tr><td style="text-align:left">Ridge</td><td>2.457</td><td>0.289</td><td>0.207</td><td>-0.022</td><td>0.130</td><td>0.016</td><td>0.004</td><td>0.435</td><td>0.242</td><td>-0.085</td></tr>
+<tr><td style="text-align:left">Lasso</td><td>2.457</td><td>0.403</td><td>0.152</td><td>-0.021</td><td>0.140</td><td>0</td><td>0.002</td><td>0.405</td><td>0.190</td><td>0</td></tr>
+<tr><td style="text-align:left">Enet</td><td>2.457</td><td>0.367</td><td>0.148</td><td>-0.020</td><td>0.133</td><td>0</td><td>0.002</td><td>0.419</td><td>0.201</td><td>0</td></tr>
+<tr><td style="text-align:left">Ols</td><td>2.213</td><td>0.711</td><td>0.310</td><td>-0.166</td><td>0.194</td><td>-0.342</td><td>0.326</td><td>0.707</td><td>0.183</td><td>-0.497</td></tr>
+<tr><td colspan="11" style="border-bottom: 1px solid black"></td></tr></table>
+
+  </article>
+  <!-- Presenter Notes -->
+</slide>
+
+<slide class="" id="slide-42" style="background:;">
+  <article data-timings="">
+    <p><img src="figure/unnamed-chunk-25-1.png" alt="plot of chunk unnamed-chunk-25"></p>
+
+  </article>
+  <!-- Presenter Notes -->
+</slide>
+
+<slide class="" id="slide-43" style="background:;">
+  <article data-timings="">
+    <table style="text-align:center"><caption><strong>Results</strong></caption>
+<tr><td colspan="8" style="border-bottom: 1px solid black"></td></tr><tr><td style="text-align:left"></td><td>Full ols</td><td>Redux ols</td><td>pcr</td><td>plsr</td><td>Ridge</td><td>Lasso</td><td>Enet</td></tr>
+<tr><td colspan="8" style="border-bottom: 1px solid black"></td></tr><tr><td style="text-align:left">(Intercept)</td><td>2.213</td><td>2.457</td><td>2.457</td><td>2.457</td><td>2.457</td><td>2.457</td><td>2.457</td></tr>
+<tr><td style="text-align:left">lcavol</td><td>0.711</td><td>0.786</td><td>0.215</td><td>0.248</td><td>0.289</td><td>0.403</td><td>0.367</td></tr>
+<tr><td style="text-align:left">lweight</td><td>0.310</td><td>0.355</td><td>0.207</td><td>0.136</td><td>0.207</td><td>0.152</td><td>0.148</td></tr>
+<tr><td style="text-align:left">age</td><td>-0.166</td><td></td><td>0.200</td><td>0.130</td><td>-0.022</td><td>-0.021</td><td>-0.02</td></tr>
+<tr><td style="text-align:left">lbph</td><td>0.194</td><td></td><td>0.168</td><td>0.062</td><td>0.130</td><td>0.14</td><td>0.133</td></tr>
+<tr><td style="text-align:left">lcp</td><td>-0.342</td><td></td><td>0.174</td><td>0.237</td><td>0.016</td><td></td><td></td></tr>
+<tr><td style="text-align:left">pgg45</td><td>0.326</td><td></td><td>0.161</td><td>0.208</td><td>0.004</td><td>0.002</td><td>0.002</td></tr>
+<tr><td style="text-align:left">svi1</td><td>0.707</td><td></td><td>0.155</td><td>0.218</td><td>0.435</td><td>0.405</td><td>0.419</td></tr>
+<tr><td style="text-align:left">gleason7</td><td>0.183</td><td></td><td>0.182</td><td>0.187</td><td>0.242</td><td>0.19</td><td>0.201</td></tr>
+<tr><td style="text-align:left">gleason9</td><td>-0.497</td><td></td><td>0.013</td><td>0.041</td><td>-0.085</td><td></td><td></td></tr>
+<tr><td style="text-align:left">RMSE(train)</td><td></td><td>0.816</td><td>0.646</td><td>0.638</td><td>0.621</td><td>0.624</td><td>0.621</td></tr>
+<tr><td style="text-align:left">Std Err</td><td></td><td>0.221</td><td>0.187</td><td>0.177</td><td>0.178</td><td>0.175</td><td>0.171</td></tr>
+<tr><td style="text-align:left">RMSE(test)</td><td>0.767</td><td>0.742</td><td>0.779</td><td>0.691</td><td>0.689</td><td>0.665</td><td>0.671</td></tr>
+<tr><td colspan="8" style="border-bottom: 1px solid black"></td></tr></table>
+
+  </article>
+  <!-- Presenter Notes -->
+</slide>
+
+<slide class="" id="slide-44" style="background:;">
+  <article data-timings="">
+    <p>jjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj</p>
+
+  </article>
+  <!-- Presenter Notes -->
+</slide>
+
+    <slide class="backdrop"></slide>
+  </slides>
+  <div class="pagination pagination-small" id='io2012-ptoc' style="display:none;">
+    <ul>
+      <li>
+      <a href="#" target="_self" rel='tooltip' 
+        data-slide=1 title='Background: Anatomy and Function'>
+         1
+      </a>
+    </li>
+    <li>
+      <a href="#" target="_self" rel='tooltip' 
+        data-slide=2 title='Background: Prostate specific antigen (PSA)'>
+         2
+      </a>
+    </li>
+    <li>
+      <a href="#" target="_self" rel='tooltip' 
+        data-slide=3 title='Background: Prostate Cancer'>
+         3
+      </a>
+    </li>
+    <li>
+      <a href="#" target="_self" rel='tooltip' 
+        data-slide=4 title='Background: Stage 3 cancer'>
+         4
+      </a>
+    </li>
+    <li>
+      <a href="#" target="_self" rel='tooltip' 
+        data-slide=5 title='Data: Predictors of PSA-levels'>
+         5
+      </a>
+    </li>
+    <li>
+      <a href="#" target="_self" rel='tooltip' 
+        data-slide=6 title='Data:'>
+         6
+      </a>
+    </li>
+    <li>
+      <a href="#" target="_self" rel='tooltip' 
+        data-slide=7 title='Data: Transformations'>
+         7
+      </a>
+    </li>
+    <li>
+      <a href="#" target="_self" rel='tooltip' 
+        data-slide=8 title='Data: Summary Post Transformation'>
+         8
+      </a>
+    </li>
+    <li>
+      <a href="#" target="_self" rel='tooltip' 
+        data-slide=9 title='Methods: Predictive Models'>
+         9
+      </a>
+    </li>
+    <li>
+      <a href="#" target="_self" rel='tooltip' 
+        data-slide=10 title='Criterion: Residual Sum of Squares'>
+         10
+      </a>
+    </li>
+    <li>
+      <a href="#" target="_self" rel='tooltip' 
+        data-slide=11 title='Criterion: Pros and Cons'>
+         11
+      </a>
+    </li>
+    <li>
+      <a href="#" target="_self" rel='tooltip' 
+        data-slide=12 title='Criterion: Expected Prediction Error'>
+         12
+      </a>
+    </li>
+    <li>
+      <a href="#" target="_self" rel='tooltip' 
+        data-slide=13 title='Criterion: Root Mean Squared Error (RMSE)'>
+         13
+      </a>
+    </li>
+    <li>
+      <a href="#" target="_self" rel='tooltip' 
+        data-slide=14 title='Criterion: Cross Validated Root Mean Squared Error'>
+         14
+      </a>
+    </li>
+    <li>
+      <a href="#" target="_self" rel='tooltip' 
+        data-slide=15 title='Criterion: One Standarad Error Rule'>
+         15
+      </a>
+    </li>
+    <li>
+      <a href="#" target="_self" rel='tooltip' 
+        data-slide=16 title='Ordinary Least Squares and Gaussian Regression'>
+         16
+      </a>
+    </li>
+    <li>
+      <a href="#" target="_self" rel='tooltip' 
+        data-slide=17 title='Tuning OLS Models'>
+         17
+      </a>
+    </li>
+    <li>
+      <a href="#" target="_self" rel='tooltip' 
+        data-slide=18 title='Tuning OLS Models Cont...'>
+         18
+      </a>
+    </li>
+    <li>
+      <a href="#" target="_self" rel='tooltip' 
+        data-slide=19 title='Cross-Validation with Best Subset Regression'>
+         19
+      </a>
+    </li>
+    <li>
+      <a href="#" target="_self" rel='tooltip' 
+        data-slide=20 title='Cross-Validation with Best Subset Regression'>
+         20
+      </a>
+    </li>
+    <li>
+      <a href="#" target="_self" rel='tooltip' 
+        data-slide=21 title='Results of cross validation'>
+         21
+      </a>
+    </li>
+    <li>
+      <a href="#" target="_self" rel='tooltip' 
+        data-slide=22 title='Application of the One-Se Rule'>
+         22
+      </a>
+    </li>
+    <li>
+      <a href="#" target="_self" rel='tooltip' 
+        data-slide=23 title='NA'>
+         23
+      </a>
+    </li>
+    <li>
+      <a href="#" target="_self" rel='tooltip' 
+        data-slide=24 title='Low Feature Variance and Pameter Uncertainty'>
+         24
+      </a>
+    </li>
+    <li>
+      <a href="#" target="_self" rel='tooltip' 
+        data-slide=25 title='Variance Inflation Factor and Multicollinearity'>
+         25
+      </a>
+    </li>
+    <li>
+      <a href="#" target="_self" rel='tooltip' 
+        data-slide=26 title='Results: Variance Inflation'>
+         26
+      </a>
+    </li>
+    <li>
+      <a href="#" target="_self" rel='tooltip' 
+        data-slide=27 title='Results: Multicollinearity'>
+         27
+      </a>
+    </li>
+    <li>
+      <a href="#" target="_self" rel='tooltip' 
+        data-slide=28 title='Principal Components Regression (pcr)'>
+         28
+      </a>
+    </li>
+    <li>
+      <a href="#" target="_self" rel='tooltip' 
+        data-slide=29 title='Pros and Cons'>
+         29
+      </a>
+    </li>
+    <li>
+      <a href="#" target="_self" rel='tooltip' 
+        data-slide=30 title='Partial Least Squares Regression (plsr)'>
+         30
+      </a>
+    </li>
+    <li>
+      <a href="#" target="_self" rel='tooltip' 
+        data-slide=31 title='NA'>
+         31
+      </a>
+    </li>
+    <li>
+      <a href="#" target="_self" rel='tooltip' 
+        data-slide=32 title='Summary: pcr Vs. plsr'>
+         32
+      </a>
+    </li>
+    <li>
+      <a href="#" target="_self" rel='tooltip' 
+        data-slide=33 title='Recovering Coeficients wrt Original Data'>
+         33
+      </a>
+    </li>
+    <li>
+      <a href="#" target="_self" rel='tooltip' 
+        data-slide=34 title='Regularization'>
+         34
+      </a>
+    </li>
+    <li>
+      <a href="#" target="_self" rel='tooltip' 
+        data-slide=35 title='Ridge Regression'>
+         35
+      </a>
+    </li>
+    <li>
+      <a href="#" target="_self" rel='tooltip' 
+        data-slide=36 title='How does it work?'>
+         36
+      </a>
+    </li>
+    <li>
+      <a href="#" target="_self" rel='tooltip' 
+        data-slide=37 title='Variance of Ridge Regression Parameters'>
+         37
+      </a>
+    </li>
+    <li>
+      <a href="#" target="_self" rel='tooltip' 
+        data-slide=38 title='Lasso Regression'>
+         38
+      </a>
+    </li>
+    <li>
+      <a href="#" target="_self" rel='tooltip' 
+        data-slide=39 title='Pros and Cons'>
+         39
+      </a>
+    </li>
+    <li>
+      <a href="#" target="_self" rel='tooltip' 
+        data-slide=40 title='Elastic Net Regression'>
+         40
+      </a>
+    </li>
+    <li>
+      <a href="#" target="_self" rel='tooltip' 
+        data-slide=41 title='NA'>
+         41
+      </a>
+    </li>
+    <li>
+      <a href="#" target="_self" rel='tooltip' 
+        data-slide=42 title='NA'>
+         42
+      </a>
+    </li>
+    <li>
+      <a href="#" target="_self" rel='tooltip' 
+        data-slide=43 title='NA'>
+         43
+      </a>
+    </li>
+    <li>
+      <a href="#" target="_self" rel='tooltip' 
+        data-slide=44 title='NA'>
+         44
+      </a>
+    </li>
+  </ul>
+  </div>  <!--[if IE]>
+    <script 
+      src="http://ajax.googleapis.com/ajax/libs/chrome-frame/1/CFInstall.min.js">  
+    </script>
+    <script>CFInstall.check({mode: 'overlay'});</script>
+  <![endif]-->
+</body>
+  <!-- Load Javascripts for Widgets -->
+  <script src="libraries/widgets/bootstrap/js/bootstrap.min.js"></script>
+<script src="libraries/widgets/bootstrap/js/bootbox.min.js"></script>
+
+  <!-- MathJax: Fall back to local if CDN offline but local image fonts are not supported (saves >100MB) -->
+  <script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+      tex2jax: {
+        inlineMath: [['$','$'], ['\\(','\\)']],
+        processEscapes: true
+      }
+    });
+  </script>
+  <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/2.0-latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+  <!-- <script src="https://c328740.ssl.cf1.rackcdn.com/mathjax/2.0-latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+  </script> -->
+  <script>window.MathJax || document.write('<script type="text/x-mathjax-config">MathJax.Hub.Config({"HTML-CSS":{imageFont:null}});<\/script><script src="libraries/widgets/mathjax/MathJax.js?config=TeX-AMS-MML_HTMLorMML"><\/script>')
+</script>
+<script>  
+  $(function (){ 
+    $("#example").popover(); 
+    $("[rel='tooltip']").tooltip(); 
+  });  
+  </script>  
+  <!-- Google Prettify -->
+  <script src="http://cdnjs.cloudflare.com/ajax/libs/prettify/188.0.0/prettify.js"></script>
+  <script src='libraries/highlighters/prettify/js/lang-r.js'></script>
+  <script>
+    var pres = document.getElementsByTagName("pre");
+    for (var i=0; i < pres.length; ++i) {
+      pres[i].className = "prettyprint linenums";
+    }
+    prettyPrint();
+  </script>
+  <!-- End Google Prettify --> 
+  </html>

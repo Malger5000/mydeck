@@ -1,0 +1,1584 @@
+---
+title       : "Statistical Machine Learning"
+subtitle    : Dimensionality reduction and Regularization for Linear Regression
+author      : "Matthew Alger"
+job         : null
+framework   : io2012        # {io2012, html5slides, shower, dzslides, ...}
+highlighter : prettify  # {highlight.js, prettify, highlight}
+hitheme     : tomorrow      # 
+widgets     : [mathjax, bootstrap]            # {mathjax, quiz, bootstrap}
+mode        : selfcontained # {standalone, draft}
+github      :
+  user: Malger5000
+  repo: Presentations
+---
+
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+## Background: Anatomy and Function 
+<div class="columns-2">
+  ![Prostatelead](C:/Users/Matthew Alger/Documents/Data Science/Statistical Machine Learning/slidify_slides/mydeck/Prostatelead.jpg)
+  
+- A gland specific only to males and is vital to overall wellness and sexual health
+- Urine excrement via urethra
+- Production of seminal fluid via seminal vesical
+- A shrowd or capsule covering the prostate 
+
+
+---
+
+## Background: Prostate specific antigen (PSA)
+
+PSA is a proteins produced by prostate cell and measured as nano-grams per milliliter of a subjects
+blood. 
+
+Factors which may effeft PSA levels include:
+
+- ethnicity
+- sexual activity
+- prostate weight and growth which is naturally linked to aging process.
+- benign prostatic hyperplasia (BPA): leading form of noncancerous tumors found in men
+- prostate carcinoma (cancer)
+
+---
+
+## Background: Prostate Cancer
+
+<div class="columns-2">
+![](C:/Users/Matthew Alger/Documents/Data Science/Statistical Machine Learning/slidify_slides/mydeck/Gleason-Grading-System.jpg)
+
+Biopsy results are investigated for carcinoma differenciation and a Gleason Score (1-5) is assigned. The most proment scores are summed to give the Gleason Grade (2-10).
+
+3-Tier system:
+
+- GG < 6 not considered
+- GG = 6 indicates minor differentiation
+- GG = 7 indicates moderate differentiation
+- 8 $\leq$ GG $\leq$ 10 is considered highest level of differentiation
+
+---
+
+## Background: Stage 3 cancer
+
+When the carcinoma extends beyond the prostate capsule, this is referred to as stage three cancer, which is sub-divided into three categories:
+
+1. T3a capsulary penetration (cp) of one side of the prostate
+2. T3b penetration of both sides of the prostate
+3. T3c penetration into the seminal vesicle or seminal vasical invasion (svi)
+
+---
+
+## Data: Predictors of PSA-levels
+
+- volume of a cancer tumor (cavol)
+- weight of the prostate (weight)
+- measure of benign prostatic hyperplasia (bph)
+- age of the subject (age)
+- percentage of samples with Gleason grades from 4 to 5 (pgg45)
+- amount of capillary penetration (cp)
+- indication if any seminal vesicle invasion (svi)
+- gleason grade from biopsy (gg)
+
+---
+
+## Data: 
+
+As proposed by Hastie et. al., from the view point of function approximation there are infinitely many such functions to choose from [1].Therefore, some constraint, based on the analyst's belief, is useful in determining $\hat{f}$.
+
+Therefore, some constraint, based on the analyst's belief, is useful in constructing $\hat{f}$. Here we state assumptions: the belief that 
+
+- $\hat{f}$ is:
+    - linear in its parameters 
+    - linear in its inputs/covariates/features which are independent of one another
+- $\hat{f}$ is stochastic due to random error which:
+    - is additive
+    - has a Gaussian distrubution with mean value = 0, and constant variance
+    - are not correlated to the conditional prediction space $\hat{y}$
+
+---
+
+
+## Data: Transformations
+
+<div class="columns-2">
+```{r echo=F, include=F}
+# install.packages("glmnet")
+# install.packages("caret")
+# install.packages("ggplot2")
+# install.packages("munsell")
+library(devtools, quietly = T)
+#install_github("vqv/ggbiplot")
+library(ggplot2, quietly = T)
+library(caret, quietly = T)
+library(MASS, quietly = T)
+library(markdown)
+
+
+################################## The Data Set  ########################
+
+#install.packages("ElemStatLearn")
+library(ElemStatLearn)
+data("prostate")
+pcd = prostate
+pcd = pcd[,c(9,1:4,6,8,5,7,10)]
+
+
+
+# removing observation 37 only level 8 gleason grade
+pcd = pcd[-37,]
+
+# setting classifiers as factors
+pcd$gleason = as.factor(pcd$gleason)
+pcd$svi = as.factor(pcd$svi)
+
+
+#defining training data note method requires class matrix
+pcd.trn = subset(pcd, train =="TRUE")
+pcd.trn = pcd.trn[,1:9]
+x.trn = pcd.trn[,2:9]
+y.trn = as.vector(pcd.trn[,1])
+
+
+#defining test set
+pcd.tst = subset(pcd, train =="FALSE")
+pcd.tst = pcd.tst[,1:9]
+x.tst = pcd.tst[,2:9]
+y.tst = as.vector(pcd.tst[,1])
+
+
+#removing the training col
+pcd = pcd[,1:9]
+
+```
+
+```{r, echo=F}
+library(grid)
+library(gridExtra)
+
+dat = cbind.data.frame(exp(pcd$lpsa), pcd$lpsa)
+colnames(dat) = c("psa", "lpsa")
+
+p1 = ggplot(data = dat, aes(x=psa)) +
+      geom_density(color="darkblue", fill="lightblue", alpha = .5) +
+      labs(title = "PSA") +
+      theme(plot.title = element_text(hjust = 0.5))
+
+p2 = ggplot(data = dat, aes(x=lpsa)) +
+      geom_density(color="red", fill="tomato1", alpha = .5) +
+      labs(title = "Logged PSA") +
+      theme(plot.title = element_text(hjust = 0.5))
+
+dat = cbind.data.frame(pcd$lpsa, exp(pcd$lcavol), pcd$lcavol, exp(pcd$lbph), pcd$lbph)
+colnames(dat) = c("lpsa", "cavol", "lcavol", "bph", "lbph")
+
+p3 = ggplot(data = dat, aes(x=cavol, y=lpsa)) +
+      geom_point() + geom_smooth(method=lm) +
+      labs(title = "Cancer Volume") +
+      theme(plot.title = element_text(hjust = 0.5))
+
+p4 = ggplot(data = dat, aes(x=lcavol, y=lpsa)) +
+      geom_point() + geom_smooth(method=lm) +
+      labs(title = "Logged Cancer Volume") +
+      theme(plot.title = element_text(hjust = 0.5))
+
+grid.arrange(p1,p2,p3,p4, ncol=2)
+
+```
+
+
+
+To ensure Normality of residuals, the *target* variable is transformed into a more symetric probability density.
+
+To ensure linearity, explanitory features are also transformed.
+
+All features have been considered for such tranformation. Results are summarized on next slide.
+
+---
+
+## Data: Summary Post Transformation
+
+
+```{r, results = 'asis', echo = F, eval=T, message=F}
+
+library(stargazer, quietly = T)
+stargazer(pcd, type = "html", median = T, iqr = F, summary = TRUE, header = F, flip = F)
+
+stargazer(cbind.data.frame(rbind.data.frame(as.data.frame(table(svi = pcd$svi)),c(NA,NA)),
+                 as.data.frame(table(gleason = pcd$gleason))), type = "html", summary = F)  
+```
+
+---
+
+## Methods: Predictive Models
+
+Define a data set by pairs $(x_1,y_1),(x_2, y_2),\dots,(x_n, y_n)$ where each row vector $x_i$ is a collection of feature measurements given by $(x_{i,1}, x_{i,2},\dots,x_{i,p})^T$, for p features. With a subset of the data learn a statistical model and validate its predictive ability with the remaining data.
+
+-True function *f* which maps $x_i \rightarrow y_i$ is unknowable
+$$\begin{align}
+&& f(x_i) &= y_i &&\nonumber\\
+&& &= E(y_i|x_i)  + \varepsilon_i &&\nonumber\\
+\mathit{and\;the\;true\;error\;becomes} && \varepsilon_i &= y_i - E(y_i|x_i) && \hspace{.5in}for\, i = 1,2,\dots,n &&
+\end{align}$$
+-Estimator function also maps $x_i \rightarrow y_i$ but can be learned
+$$\begin{align}
+&& \hat{f}(x_i) &= y_i &&\nonumber\\
+&& &= \hat{y}_i + \epsilon_i &&\nonumber\\
+\mathit{so\;error\;estimator\;becomes} &&  \epsilon_i &= y_i - \hat{y}_i \hspace{.5in}for\, i = 1,2,\dots,n &&
+\end{align}$$
+
+---
+
+## Criterion: Residual Sum of Squares
+
+Summing error differences is non informative and not mathematically tractible. Therefore, squared error can be minimized.
+
+$$\begin{align}
+\operatorname*{arg\,min\,} RSS(f) & = \operatorname*{arg\,min}_f  \lvert\lvert \pmb{\epsilon} \rvert\rvert^2 \nonumber\\
+& = \operatorname*{arg\,min}_f \lvert\lvert\pmb{Y} - E(\pmb{Y} | \pmb{X}^*)\rvert\rvert^2 \nonumber\\
+&=  \sum_{i=1}^n(y_i - \hat{y}_i)^2
+\end{align}$$
+
+- Result of minimization is the Classical Gaussian model
+
+---
+
+## Criterion: Pros and Cons
+
+Pros
+
+- The shortest $l_2$ distance between observation $y_i$ and prediction/projection $\hat{y}_i$
+    - Asymptotically unbiased
+    - Out of all unbiased estimates, has the least variance during parameter estimation
+    - May be well suited in a controlled experimental environment
+    
+Cons 
+
+- RSS decreases monotonically as the number of features increase therefore
+  - RSS is not appropriate for variable selection
+  - May result in an overly complex bloted model 
+  - May result in a model with poor prediction of newly encountered data (extrapolation)
+
+---
+
+## Criterion: Expected Prediction Error 
+
+Bias is intimaley related to expected test error for an unlearned test point $y_0$:
+
+$$\begin{align}
+E(\lvert\lvert \pmb{\varepsilon}_0 \rvert\rvert^2) &= \sigma_\varepsilon^2 + \{E(\hat{y}_0) - y_0\}^2 + E\{(\hat{y}_0- E(\hat{y}_{0}))^2\}\\
+&= Irreducible\; Error + Squared\; Bias + Variance
+\end{align}$$
+
+Perhaps bias may be inserted into the model in exchange for a relatively larger reduction in variance explained by the model: the bias-variance trade off.
+
+---
+
+## Criterion: Root Mean Squared Error (RMSE)
+
+To measure test error calculate the root of the average RSS over T test points.
+
+$$\begin{align}
+RMSE(f) &= \sqrt{\frac{1}{T}\sum_{t=1}^T(y_t - \hat{y}_t)^2}\quad && for\; t=1,2,\dots,T\; test\; point(s).
+\end{align}$$
+
+The goal of a prediction model is to provide extrapolation which are resonible, on average. Therefore we should minimize this quantity (instead of RSS) by choosing tuning parameters based on this RMSE instead of RSS. 
+
+Problem: Test data is not used to train a model, only to evaluate it.
+
+Solution: Hold out some training data and try to estimate the RMSE iteratively
+
+---
+
+## Criterion: Cross Validated Root Mean Squared Error
+
+Repeated random k-fold cross validation is used to both select variables as well as insert bias inorder improve prediction error.
+
+$${\small  
+  \begin{align}
+    &&\mathit{CV-}RMSE(\hat{f}) &= \sqrt{E[(y_{n_k} - \hat{y}_k)^2]} &&     \mathit{for\,the\,k^{th}\,holdout\,fold\, x_k}&&\\
+    && &= \sqrt{\frac{1}{n_k}\sum_{j=1}^{n_k}(y_j - \hat{y}_{k,j})^2} && \mathit{for\, j = 1,2,\dots,\,n_k\, holdout\, points}\, (x_j, y_j)&&
+  \end{align}
+}%$$
+
+1. Randomly partition data into k-folds of nearly equal size.
+2. Train a model on k-1 folds.
+3. Uses the $k^{th}$-fold to calculate the RMSE by (6).
+4. Repeat steps 2-4 until data has been trained and tested on all k-folds.
+5. Find the average RMSE over k repetitions.
+6. Repeat steps 1-4 for some number of iterations and collect the RMSE for each run.
+7. Calculate the average RMSE over each run, and select the model which is within one standard error of the minimum RMSE (see one-se rule below).
+
+---
+
+## Criterion: One Standarad Error Rule
+
+"Take the simplest (most regularized) model whose [cross-validated prediction] error is within one standard error of the minimal error. (Ryan Tibshirani)" 
+
+The "rule" was originated by Breiman et al (1984) in the text *Classification and Regression Trees*.
+
+Has been emplimented along side of cross-validation by:
+
+- J. Friedman a coauthor of *Elements of Statistical Learning*
+- Tibshirani data mining lectures at Carnegie Mellon University
+- Max Kuhn from Pfizer Global R&D, within *The Caret Package*
+
+--- &twocol
+
+## Ordinary Least Squares and Gaussian Regression
+
+Matrix notation makes it easy! Let $\pmb{y}$ be the vector of realization of the random vector $\pmb{Y}$. Then let the collection of row vectors $\pmb{x}_i$ be the data matrix $\pmb{X}$ for $i = 1,2,\dots,n$ rows and $j=1,2,\dots,p$ rows.
+
+
+*** =left
+
+### Gausian/OLS Model
+
+$${\small
+\begin{align}
+\pmb{Y} &= E(\pmb{Y}|\pmb{X}^*) + \pmb{\varepsilon}\\
+&= \pmb{X}\pmb{\beta} + \pmb{\varepsilon}\nonumber \\
+so\;that\hspace{10pt}\pmb{\varepsilon} &= \pmb{Y} - \pmb{X}\pmb{\beta}\\
+\end{align}
+}%$$
+
+For an idealized random parameter $\pmb{\beta} = [\beta_1\;\beta_2\;\dots\;\beta_p]$ which is never known.
+
+
+*** =right
+
+### The Learned Function
+
+$${\small
+\begin{align}
+\pmb{y} & = \pmb{X} \hat{\pmb{\beta}} + \pmb{\epsilon}\\
+ & = \pmb{X}(\pmb{X}^{T}\pmb{X})^{-1}\pmb{X}^{T}\pmb{y} + \pmb{\epsilon}\\
+ so\;that\hspace{10pt}\pmb{\epsilon}&=\pmb{y} - \pmb{X}(\pmb{X}^{T}\pmb{X})^{-1}\pmb{X}^{T}\pmb{y}
+\end{align}
+}%$$
+
+For parameter estimate:
+
+$${\small
+\begin{align}
+\hat{\pmb{\beta}}^{ols} &= \operatorname*{arg\,min}_\beta RSS(\pmb{\varepsilon})\nonumber\nonumber\\
+& = \operatorname*{arg\,min}_\beta \{(\pmb{Y}-\pmb{X\beta})^T(\pmb{Y}-\pmb{X\beta})\}\nonumber\\
+&= (\pmb{X}^{T}\pmb{X})^{-1}\pmb{X}^{T}\pmb{y}
+\end{align}
+}%$$
+
+--- 
+
+## Tuning OLS Models
+
+Since there is no internal mechanism for variable selection we may choose:
+
+- Best-subset selection
+    - computationally expensive
+    - impractical when number of features is much larger than around 40
+    - not mathematically tractible and standard errors are not obtainable
+    - indexed by a single parameter $\lambda$ = model size
+    - may result is a high variance model with very low bias
+    
+- Forward-Stepwise Selection
+    - Begin with the Null model and a variable if criterion is not improved drop it.
+        - This constraint will induce a bias-variance trade off
+    - May never obtain the "best" model found by best-subset selection
+    - Can always be emplimented even for very wide data sets
+
+---
+
+## Tuning OLS Models Cont...
+
+- Backward-Stepwise selection
+    - Begins with the full set of variables
+    - Works backward dropping the variable which with the most extreme impact on the criterion
+    - May only be used when obsevations are greater than the number of parameters
+
+$${\small
+\begin{align}
+\textit{All methods suffer from a lack of mathematical tractibility as standard errors are not accurate.}
+\end{align}
+}%$$
+
+Classical Linear regression has no mechanism to account for bias.  However, bias may enter the model:
+  
+- via omitted variable bias (OVB): the omission of correlated (but relevent) features by a particular variable selction criterion or handpicking
+
+- inflating the estimate of the residual standard error, $\hat{\sigma}$
+
+---
+
+## Cross-Validation with Best Subset Regression
+
+Since the goal is to learn a function which will minimize the prediction error and not necessarily RSS, the following cross-validation strategy is performed:
+
+1. Randomly divide the training data into k = 10 folds.
+2. Take k-1 folds and perform best-subset selection.
+3. Take each best sub-model of size $lambda$ and predict the hold out data in the $k^{th}$-fold and collect the RMSE for each best model.
+4. Rotate folds, repeat steps 2-3 until all folds are considers for testing and training. 
+5. Average the $RMSE$ over the folds.
+6. Repeat steps 1-5 for m = 10 times then calculate the average of average $RMSE$ over the repetitions.
+
+--- 
+
+## Cross-Validation with Best Subset Regression
+
+Advantages
+
+- Acurately collection of standard errors
+- Every point may not be used to train the model due to randomization of fold assignments
+    - Good training for a test of how well a model predicts random data
+    
+Disadvantages
+
+- Very computaionally expensive however our data set is small
+    - The best subset step(2) could be replaced by stepwise selection if p were large. 
+
+--- &twocol
+
+## Results of cross validation 
+
+```{r, echo=F, results = 'asis'}
+
+library(GGally, quietly = T)
+library(stats, quietly = T)
+library(car, quietly = T)
+
+x = x.trn
+
+# Standadizing quantitative variables only
+x[,1:6] = scale(x[,1:6], center = T, scale = T)
+
+
+x = model.matrix(y.trn ~ . , data = cbind.data.frame(y.trn, x))[,2:10]
+colnames(x) = c("lcavol", "lweight", "age", "lbph", "lcp", "pgg45",
+                "svi", "gleason7", "gleason9")
+
+
+#########################################################################
+#### 10-fold random-cv repeated 10 times ################################
+
+library(leaps)
+
+# setting the # of folds
+k = 10
+
+# null matrix to hold the averaged RMSE for each "a"" iteration 
+cv.err.10 = matrix (NA, k, 9, dimnames = list(NULL, paste(1:9)))
+
+# null matrix to hold the standard error for each averaged RMSE for each "a"" iteration 
+cv.se.10 = matrix (NA, k, 9, dimnames = list(NULL, paste(1:9)))
+
+seeds = c(1:10)
+seeds = 2*seeds^2 +9
+
+
+# For 10 repetions
+for (a in 1:k) {
+  
+  # assign each training point a fold randomly
+  set.seed (2*a^2 + 9)
+  folds = sample (1:k, nrow(x), replace = TRUE)
+
+  # null matrix to hold the RMSE for each ith fold for the jth model
+  cv.err = matrix (NA, k, 9, dimnames = list(NULL, paste(1:9)))
+
+
+  #the ith fold find the best subset set (10 rows, 1 for each fold)
+  for (i in 1:k){
+  
+    df = cbind.data.frame(y = y.trn, x)[folds!=i, ]
+    dat = df[,-1, drop = F]
+  
+    ols.mods = regsubsets(y ~ .,
+                          data= df,
+                          nvmax =9)
+  
+    out = summary(ols.mods)
+  
+  
+  # for the jth best subset of j-variables calculate the rmse (9 columns, 1 for each model)
+    for (j in 1:9) {
+    
+      indx = match(names(which(out$which[j, -1] == "TRUE")), colnames(df))
+      dat = df[, indx, drop = F]
+      ols.mod = lm(y ~ ., cbind.data.frame(y = df$y, dat))
+    
+      pred =  predict(ols.mod, cbind.data.frame(y = y.trn, x)[folds == i, ], id=j)
+      cv.err[i,j]= sqrt(mean(( y.trn[folds == i] - pred)^2))
+    }
+    
+  }
+  
+# at this point we have rmse for 10(folds)x9(models) so then the column average rmse for each model is stored in cv.err.10
+cv.err.10[a,] = colMeans(cv.err)
+
+#Standard error stored in cv.se and taken over all k=10 folds
+cv.se.10[a,] = apply(cv.err, 2, sd)
+}
+
+####################### apply one-se rule ###############################
+
+# taking averages over all repetiions
+epe = colMeans(cv.err.10)
+epe.se = colMeans(cv.se.10)
+
+# finding the min and its standard error
+min.rmse = min(epe)
+min.se = epe.se[which.min(epe)]
+
+# range of the one.se rule
+range.one.se = c(min.rmse, min.rmse + min.se)
+
+#get the index of the best model
+best.model = match(max(subset(epe, epe>=min.rmse & epe<=min.rmse + min.se)), epe)
+
+#get the rmse and stand err.
+cv.ols.se = epe.se[best.model]
+ols.RMSE = epe[best.model]
+
+######################################################################
+############## Model the RMSE #########################################
+
+dat = cv.err.10
+
+rownames(dat) = c("fold 1",  "fold 2", "fold 3", "fold 4", "fold 5", "fold 6", "fold 7", "fold 8", "fold 9", "fold 10")
+ 
+colnames(dat) = c("1",  "2*", "3", "4", "5", "6", "7", "8*", "9*")
+
+library(reshape2)
+dat = melt(dat)
+colnames(dat) = c("fold.id", "comp.id", "RMSE")
+
+```
+   
+```{r, echo=F, message=F, results='asis'}
+
+stargazer(tail(rbind.data.frame(cbind.data.frame("Rep.Id" = c(1:10),
+                                                 round(cv.err.10,4)),
+                                c("Average", round(colMeans(cv.err.10),4))),3),
+          summary = F,
+          rownames = F,
+          header = F,
+          title = "Cross Validated RMSE",
+          type = "html")
+
+
+```   
+
+*** =left
+
+### Observations
+
+- The full model minimizes test error at `r min.rmse`
+- The least complex and minimal test error has only 2 features
+- How to justify the choice when we clearly stated we wish to minimize expected prediction error?
+
+*** =right
+
+### Expected RMSE
+
+```{r, echo=FALSE, fig.height = 4, fig.width = 5}
+
+ggplot(data = dat, aes(x = comp.id, y = RMSE, colour = comp.id)) +
+  geom_line() +
+  stat_summary(aes(y = , group=1),
+               fun.y=mean, colour="red",
+               size = 2,
+               geom="point",group=1) +
+  labs(list(x = "Number of Features", y = "RMSE")) +
+  theme(plot.title = element_text(hjust = 0.5),legend.position="none")
+```
+
+---
+
+## Application of the One-Se Rule
+
+Recall:
+"Take the simplest (most regularized) model whose [cross-validated prediction] error is within one standard error of the minimal error. (Ryan Tibshirani)"
+
+```{r, echo=F, results="asis"}
+
+epe.summary = round(t(cbind.data.frame(epe, epe.se)), 4)
+row.names(epe.summary)= c("E(RMSE)", "Std Err")
+
+stargazer(epe.summary,
+          summary = F,
+          rownames = T,
+          header = F,
+          title = "Cross Validation Standard Error",
+          type = "html",
+          digits = NA
+          )
+```
+
+1. The minimized E(RMSE) is in column 9 and becomes the lower bound = `r min.rmse`
+
+2. The upper bound is then `r round(min.rmse, 4)` + `r round(min.se,4)` = `r round(min.rmse + min.se, 4)`
+
+3. So range of the One-SE rule is (`r round(range.one.se,4)`). 
+
+Only models 9,8,2 are within this range and the least complex is model 2. This technique is easy to automate when standard errors are accurate and available, as is the case for cross-validation.
+
+---
+
+
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, results='asis'}
+
+
+ols.2 = lm(lpsa ~ lcavol + lweight, data = cbind.data.frame(lpsa = y.trn, x))
+ols.f = lm(lpsa ~ ., data = cbind.data.frame(lpsa = y.trn, x))
+
+ols.2.coef = c(1:10)*0
+ols.2.coef[1:3] = coef(ols.2)
+
+
+
+stargazer(ols.f,
+          ols.2,
+          type = "html",
+          summary = F,
+          header = F,
+          object.names = F,
+          dep.var.labels.include = FALSE,
+          model.numbers          = FALSE,
+          # out = "C:/Users/Matthew Alger/Documents/Statistical Machine Learning/Figures/OlsSummary.tex",
+          column.labels = c("Full Mod", "CV-Best Subset"),
+          dep.var.caption = "",
+          ci=TRUE,
+          ci.level=0.95,
+          single.row=TRUE,
+          font.size = "footnotesize",
+          column.sep.width = ".5pt",
+          omit.stat = c("f", "n"),
+          add.lines = list(c("RMSE", "0.7668", "0.7418"))
+          )
+
+z = model.matrix(lm(y.tst ~ ., cbind.data.frame(lpsa = y.tst, x.tst)))[,-1]
+z = cbind.data.frame(scale(z[,1:7]), z[,8:10])
+colnames(z)[8] = "svi"
+
+#test data must be formatted similarly to training data or problems
+v = cbind.data.frame(scale(x.tst[1:6], center = T, scale = T), x.tst[7:8])
+
+ols.err = sqrt(mean((predict(ols.2, v)-y.tst)^2))
+ols.f.err = sqrt(mean((predict(ols.f, z) - y.tst)^2))
+
+```
+
+
+--- &twocol
+
+## Low Feature Variance and Pameter Uncertainty
+
+The variance in parameter estimate $\hat{\beta_i}$ is inversely proportional to feature variance $V(x_j)$.
+
+Consider the sigular value decomposition $SVD(\pmb{X})=\pmb{U D V^{T}}$, for orthogonal matices $\pmb{U}$ and $\pmb{V}$. The left and right singular vectors which span the columns (features) and rows (measurements) of **X**, respectively. $\pmb{D}$ is a p by p matrix with eigen values along the main diagonal and all other entries = 0.
+
+*** =left
+### Covariance of $\pmb{X}$ 
+
+$${\small
+\begin{align}
+Var(\pmb{X}) &= COV(\pmb{X},\pmb{X})\nonumber\\
+&\propto \pmb{X}^{T}\pmb{X}\nonumber\\
+&= \pmb{(U D V^{T})^{T}}\pmb{U D V^{T}}\\
+&= \pmb{V D^{2} V^{T}}
+\end{align}
+}%$$
+
+Where the elements along the diagonal of $\pmb{D}$ are $d_i^2 = (\pmb{x}_j - E(\pmb{x}_j))^2$, the $Var(\pmb{x_j})$, for $j=1,2,\dots,p}$.
+
+*** =right
+
+### Variance of parameter ${\hat{\pmb{\beta}}}$
+$${\small
+\begin{align}
+Var(\hat{\pmb{\beta}}) &= \sigma^2(\pmb{X}^T\pmb{X})^{-1}\\
+&= \sigma^2(\pmb{(U D V^{T})^{T}}\pmb{U D V^{T}})^{-1}\\
+&= \sigma^2 \pmb{V} \pmb{D}^{-2} \pmb{V}^T, \quad for \; some \; constant \; \sigma^2
+\end{align}
+}%$$
+
+When $Var(x_j) = d_i^2$ is small the variance and thus uncertainty in choosing $\beta_i$ is dramatically inflated. Therefore, features with low variance causes instability when choosing parameters.
+
+--- 
+
+### Variance Inflation Factor and Multicollinearity
+
+
+A measure of parameter's variance is inflated is given by variance inflation factor:
+
+$${\small
+\begin{align}
+VIF_j &= \sum_{i=1}^p (\frac{v_{i,j}}{d_j})^2
+\end{align}
+}%$$
+
+- In the extreme case of no multicolleanarity the numerator $v_{i,j}^2 = 1$ and variance inflation is controlled by $Var(x_i)$
+
+- As collinearity increases between the $j^th$ feature and the other $j-1$ features, the numerator increases quadratically and inflates the $Var(\beta_i)$ for a fixed numerator
+
+- Suggest VIF may be confounded as a measure of multicollinearity if both numerator and denominator are large, but have similar values.
+
+---
+
+##  Results: Variance Inflation
+
+$GVIF^{\frac{1}{2*Df}}$ represents the factor by which the solution ellipse of $\beta_j$ has been inflated. Variance inflation is within the acceptable $ranges<2$
+
+```{r, warning=F, results="asis", fig.pos= 'H', echo=F}
+
+library(car)
+library(stats)
+
+ols.model = lm(y.trn~.,data = cbind.data.frame(y.trn,x.trn))
+stargazer(t(vif(ols.model)),
+          type = "html",
+          header = F,
+          title = "Generalized Variance Inflation Factors")
+
+```
+
+---
+
+## Results: Multicollinearity
+
+However, its seems correlation between features are moderate to high.
+
+```{r, echo = FALSE , fig.width=11, fig.height=6, warning=F, results="asis"}
+
+# #initial multicollinearity analysis
+# install.packages("GGally")
+# install.packages("labeling")
+library(GGally)
+
+dat = x.trn[c(1,5,6,7,8)]
+ggpairs(dat,
+        title = "Correlation Matrix with Scatter Plots",
+         lower=list(combo=wrap("facethist", binwidth=2)))
+
+```
+
+--- &twocol
+
+## Principal Components Regression (pcr)
+
+Let the data $\pmb{X}$ be centered and scaled to have variance = 1. Project the data onto orthogonal directions which maximize the $Var(\pmb{X})$, and regress $\pmb{y}$ onto these directions.
+
+- Let left singular vectors of the covariance matrix $\pmb{V D^{2} V^{T}}$ be "principal directions" $\pmb{V}$.
+- Let $\pmb{Z} = \pmb{UD}$ be the principal components ("scores"), were $\pmb{U}$ is orthonormal and endowed with the the square root of the eigen-values $D$ 
+
+*** =right
+- Also $\pmb{Z} = \pmb{XV}$ represents the projection of the data $\pmb{X}$ onto the principal directions $\pmb{V}$
+- If the columns of $\pmb{Z}$ are reordered so $\lvert\lvert z_1 \rvert\rvert \geq \lvert\lvert z_2 \rvert\rvert \geq \dots \lvert\lvert z_p \rvert\rvert$, then $z_1$ has the largest variance out of all other principal components.
+
+*** =left
+![image_05](file:///C:/Users/Matthew Alger/Documents/Data Science/Statistical Machine Learning/slidify_slides/mydeck/image_05.gif)
+
+--- 
+
+## Pros and Cons
+
+### Pros
+
+- This removes the variance inflation caused by multicollinearity.
+
+### Cons
+- Interpretations are complicated but coeficients w.r.t $\pmb{x}$ can be recoverd.
+- Doen't combat the effects of features with low variation since:
+
+$${\small
+\begin{align}
+Var(\hat{\beta}_j^{pc}) &= \frac{\sigma^2}{d_j^2} &\propto \frac{1}{Var[x_j]}\\
+\end{align}
+}%$$
+
+Solution: Use cross-validation to choose how many principal components are needed to minimize the prediction error and complexity.
+
+Further considerations: $textit{pcr}$ is Y-unaware. Directions were chosen to maximize the $Var(\pmb{x})$ and the target $\pmb{y}$ may not covary in this direction.
+
+---
+
+## Partial Least Squares Regression (plsr)
+
+- Very similar to $\textit{pcr}$
+    - scale invariant and requires standardization prior
+    - uses principal components and values (eigenvalues)
+
+- Principal directions are chosen to maximize the $Cov(\pmb{X},\pmb{y})$ iteratively:
+
+1. Singular Value Decomposition of $\pmb{X}^T\pmb{y} = \pmb{UDV}^T$
+2. Obtain scores 
+    i) $\pmb{s}_i <= \pmb{Au}_i$ initialize with $\pmb{A} = \pmb{X}$ 
+    i) $\pmb{t}_i <= \pmb{Bv}_i$ initialize with $\pmb{B} = \pmb{Y}$
+3. Obtain loadings
+    i) $\pmb{p}_i <= \pmb{A}^T\pmb{x}$
+    i) $\pmb{q}_i <= \pmb{B}^T\pmb{y}$
+4. Partial out 
+    i) $\pmb{A}_{i+1} <= \pmb{A}_{i}-\pmb{sp}^T$
+    i) $\pmb{B}_{i+1} <= \pmb{B}_{i}-\pmb{tp}^T$
+    
+Repeat steps 2-4 for $\mathit{i = 2,3,\dots,p}$ or until $\pmb{A}$ becomes a null matrix. Once the *n* by *p* score matrix is constructed a final multiple regression is performed by regressing the target on score \pmb{S}, and regression coefficients $\pmb{\theta}$ collected. Then as a final step the coeficients w.r.t. $\pmb{X}$ can be obtained by $\hat{\pmb{\beta}} = \pmb{P}\hat{\pmb{\theta}}$.
+
+--- &twocol
+
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, include=FALSE}
+
+#install.packages("caret")
+library(caret)
+
+####### set up the data as factors (poor prediction, no target scaling) ########
+######## gives results similar to Hastie et.al #################################
+
+#preparing training data
+# dat = x.trn
+# dat = cbind(dat, lpsa = y.trn)
+
+
+#Preparing holdout test data
+# dat.tst = x.tst
+# y = y.tst
+
+#10 times randomly repeated  10-fold cross-validation
+# scheme = trainControl(method = "repeatedcv", repeats = 10, selectionFunction = "oneSE")
+
+
+######## set up 2 with dummies ################################################
+###### with a dummy set up and scaled target ###################################
+
+#preparing training data
+dat = model.matrix(y.trn ~ . , data = cbind.data.frame(y.trn,x.trn))[ , -1, drop = F]
+dat = cbind(dat, lpsa = scale(y.trn)[,1])
+
+
+#Preparing holdout test data
+dat.tst = model.matrix(y.tst ~ . , data = cbind.data.frame(y.tst,x.tst))[,-1, drop = F]
+y = scale(y.tst)[,1]
+
+#10 times randomly repeated  10-fold cross-validation
+scheme = trainControl(method = "repeatedcv", repeats = 10, selectionFunction = "oneSE")
+
+#################################### end data set up 2 ##########################
+
+
+
+##############################################################
+#############   pcr   ########################################
+
+set.seed(12)
+pcr.mods = train(lpsa~.,
+                 data = dat,
+                 method = 'pcr',
+                 intercept = F,
+                 metric = "RMSE",
+                 preProcess = c("center", "scale"),
+                 trControl = scheme,
+                 tunelength = ncol(dat))
+
+##############  Get coefficients in terms of old variables #######
+
+pcr.final = pcr.mods$finalModel
+
+#1) get Z=score=Z2 &  #####################
+z1 = as.data.frame(pcr.final$scores[1:nrow(pcr.final$scores),1:ncol(pcr.final$scores)])
+dat1 = cbind.data.frame(z1, lpsa = y.trn)
+
+#2) regress scores on y to get new coefficients
+pcr.lm = lm(lpsa ~ ., data = dat1)              #  <= lm w.r.t scores
+theta1 = as.matrix(coef(pcr.lm))[-1,]
+
+#3) loadings=V=loads
+loads1 = as.matrix(loadings(pcr.final)[1:9, , drop = F])
+
+#4) matrix mult. to get beta wrt original data
+pcr.coef = loads1 %*% theta1
+
+
+# Prediction error
+pcr.err = sqrt(mean((y - predict(pcr.mods, newdata = dat.tst))^2))
+
+# Results
+pcr.results = pcr.mods$results[as.numeric(pcr.mods$bestTune),]
+pcr.results = pcr.results[-5]
+colnames(pcr.results)[4] = "SE(RMSE)"
+
+##############################################################
+#############   PLS   ########################################
+
+set.seed(12)
+plsr.mods = train(lpsa~.,
+                 data = dat,
+                 method = 'pls',
+                 intercept = F,
+                 metric = "RMSE",
+                 preProcess = c("center", "scale"),
+                 trControl = scheme,
+                 tunelength = ncol(dat))
+
+######################### end of training #########################
+###################################################################
+
+##############  Get coefficients in terms of old variables #######
+
+plsr.final = plsr.mods$finalModel
+
+#1) get Z=score=Z2 &  #####################
+
+z2 = as.data.frame(plsr.final$scores[1:nrow(plsr.final$scores),1:ncol(plsr.final$scores)])
+dat2 = cbind.data.frame(z2, lpsa = y.trn)
+colnames(dat2) = c("Comp 1", "lpsa")
+
+#2) regress scores on y to get new coefficients
+plsr.lm = lm(lpsa ~ ., data = dat2)
+theta2 = as.matrix(coef(plsr.lm))[-1,]
+
+#3) loadings=V=loads
+loads2 = as.matrix(loadings(plsr.final)[1:ncol(dat)-1, , drop = F])
+
+#4) matrix mult. to get beta
+plsr.coef = loads2 %*% theta2
+
+
+# Prediction error
+plsr.err = sqrt(mean((y - predict(plsr.mods, newdata = dat.tst))^2))
+
+# Results
+plsr.results = plsr.mods$results[as.numeric(plsr.mods$bestTune),]
+plsr.results = plsr.results[-5]
+colnames(plsr.results)[4] = "SE(RMSE)"
+
+######################## Collecting results ###################################
+
+### y-var explained and x-var used to explain
+X.var =  round(c(sum(pcr.final$Xvar/pcr.final$Xtotvar),  sum(plsr.final$Xvar/plsr.final$Xtotvar)), 4)
+Y.var = c(.5600, .5899) #have to get this manually with summary(plsr.mods and pcr.mods)
+
+results = rbind.data.frame(c(pcr.results, RMSE.test = pcr.err), c(plsr.results, RMSE.test = plsr.err))
+results = cbind.data.frame(results[,1],X.var,Y.var,results[,c(2,4,5)])
+colnames(results) = c("Components", "X.var","Y.var","E(RMSE)","SE(RMSE)","RMSE")
+
+row.names(results) = c("pcr", "plsr")
+
+dim.redux.coef = cbind.data.frame(c('(Intercept)'= mean(y.trn), pcr.coef), c('(Intercept)'= mean(y.trn), plsr.coef))
+colnames(dim.redux.coef) = c("pcr", "plsr")
+row.names(dim.redux.coef)[1] = '(Intercept)'
+row.names(dim.redux.coef)[-1] = colnames(dat)[-10]
+dim.redux.coef = t(dim.redux.coef)
+
+
+``` 
+
+---
+
+## Summary: pcr Vs. plsr
+
+```{r, results = 'asis', echo=F}
+
+# summary of results for both mods
+stargazer(results,
+          type = "html",
+          summary = F,
+          header = F,
+          rownames = T,
+          column.labels = c("pcr", "plsr"),
+          column.sep.width = "3pt")
+
+```
+
+*** =left
+### PCR
+- requires two components and 56.3% of the x-variance
+- acounts for 56.0% of the target variance
+- not a good prediction test error (less robust)
+- large standard error
+
+*** =right
+### PLSR
+- is less complex with only 1 component and 37.0% of x-variance yet:
+    - explains more target variation
+    - better data fit
+    - better predictor of test error (more robust)
+    - large standard error
+    
+--- &twocol
+
+### Interpretations
+
+```{r, results='asis', echo=F}
+
+################# correlations ############################################
+dat1 = t(cbind.data.frame(loads1,loads2))
+
+row.names(dat1) = c("pcr 1", "pcr 2","plsr 1")
+
+stargazer(dat1,
+          type = "html",
+          summary = F,
+          header = F,
+          title = "Correlation of Features to Principal Components (loadings)",
+          rownames = T,
+          column.sep.width = "2pt")
+
+
+```
+
+- pcr 1 indicates cancer volume increses are accompanied by increases in capulary penetration, and the percentage of biopsies with gleason grades between 4 and 5. These all have combine to increase PSA levels.
+
+- pcr 2 indicates a decrease in benign prostatic hyperplasia (noncancerous tumers) and should be accompanied by decreases the prostate weight and age. These all should have a negative impact on psa levels
+
+- plsr 1 has the same interpretation as pcr 1. HOwever, it indicates the increases should be associated with greater increases in psa levels.
+
+---
+
+## Recovering Coeficients wrt Original Data
+
+```{r, results="asis", echo=F}
+
+# comparisons of final regression mods
+
+stargazer(pcr.lm, plsr.lm,
+          type = "html",
+          summary = F,
+          header = F,
+          object.names = F,
+          dep.var.labels.include = FALSE,
+          model.numbers = FALSE,
+          column.labels = c("pcr", "plsr"),
+          dep.var.caption = "",
+          ci=TRUE,
+          ci.level=0.95,
+          single.row=TRUE,
+          font.size = "footnotesize",
+          column.sep.width = ".5pt",
+          keep.stat = c("ser","sigma2"),
+          omit.table.layout = "n"
+          )
+
+
+```
+
+Coeficients wrt origianal data can be constructed by weighting parameters above by the loadings $\pmb{P}$ (correlation of x to each principal direction) or: $\hat{\pmb{\beta}} = \pmb{P}\hat{\pmb{\theta}}$.
+
+```{r, results = 'asis', fig.pos="c"}
+
+# collection of coeficients for both mods
+stargazer(dim.redux.coef,
+          type = "html",
+          summary = F,
+          header = F,
+          rownames = T,
+          title = "Coefficient Summary for Dim Redux",
+          column.labels = c("pcr", "plsr"),
+          column.sep.width = "2pt"
+          )
+
+```
+
+---
+
+## Regularization
+
+Dimnsionality reduction methods like *ols*, *pcr*, and *plsr* have no internal mechanism to deal with latent features with low variation (only multicollinearity) and the solution is to remove them.
+
+- Main Points:
+    - Eigenvalues of of the correlation matrix of standardized features are the magnetudes of of the $Var(\pmb{X})$
+    - Regularization methods use the principal components from $\textit{pcr}$ as a basis for inputs.
+    - Then we add one more step: shrink predictions $\hat{\pmb{y}}$ by a magnetude relative to the eigenvalue corresponding to those directions.
+    - The parameter controlling the shrinkage is adaptively selected via cross-validation
+
+- From optimization this can be seen as a penalization of the RSS
+    -further constrainting the optimal minimized RSS will result is a larger RSS
+
+--- 
+
+## Ridge Regression
+
+### Penalizing RSS
+
+Penalize the RSS by the $l_2$-norm
+$$\begin{align}
+RSS(\hat{\pmb{\beta}}^{rr}) &= \operatorname*{arg\,min}_\beta \{\sum_{i=1}^n (y_{i}-\beta_{0}-\sum_{j=1}^px_{i,j}\beta_{j})^2 + \lambda \sum_{j=1}^p \beta_{j}^2 \}
+\end{align}$$
+
+
+### Optimization
+
+Constrain the optimal objective function value by $l_2$-norm
+
+$$\begin{align}
+RSS(\hat{\pmb{\beta}}^{rr}) &= \operatorname*{arg\,min}_\beta \{\sum_{i=1}^n (y_{i}-\beta_{0}-\sum_{j=1}^px_{i,j}\beta_{j})^2\}, \hspace{5 pt} \textit{s.t.,}\hspace{5 pt}  \sum_{j=1}^p \beta_{j}^2 \leq t
+\end{align}$$
+
+---
+
+### How does it work?
+
+Simply put, add the same constaint $\lambda$ to each eigen value: bias the model.
+
+$${\small
+\begin{align}
+\hat{\pmb{y}} &= \pmb{X}\pmb{\beta}^{r}\nonumber\\
+&= \pmb{X}(\pmb{X}^{T}\pmb{X} + \lambda I)^{-1}\pmb{X}^{T}\pmb{y}\nonumber\\
+&= \pmb{U}\pmb{D}\pmb{V}^T  (\pmb{V}\pmb{D}^{2}\pmb{V}^{T}+ \lambda I)^{-1}  (\pmb{U}\pmb{D}\pmb{V}^T)^T\pmb{y}\nonumber\\
+&= \pmb{U}\pmb{D}\pmb{V}^T  \pmb{V}(\pmb{D}^{2} + \lambda I)^{-1}\pmb{V}^{T} \pmb{V}\pmb{D}\pmb{U}^T\pmb{y}\nonumber\\
+&= \pmb{U}\pmb{D}(\pmb{D}^{2} + \lambda I)^{-1}\pmb{D}\pmb{U}^T\pmb{y}\\
+&= \sum_{j=1}^p \pmb{u}_{j} \frac{d_{j}^2}{d_{j}^2 + \lambda}\pmb{u}_{j}^T\pmb{y}
+\end{align}
+}%$$
+
+Ridge regression shrinks the coordinates of the unbiased-*ols* solutions, $\pmb{U}^T\pmb{y}$,  by a factor:
+
+$${\small
+\begin{equation}
+0 \leq \frac{d_{j}^2}{d_{j}^2 + \lambda} \leq 1
+\end{equation}
+}%$$
+
+--- 
+
+### Variance of Ridge Regression Parameters
+
+ridge parameters may be rewritten as:
+
+$${\small
+\begin{equation}
+\pmb{\beta}_j^r =  \frac{d_{j}}{d_{j}^2 + \lambda}\pmb{u}_{j}^T\pmb{y}
+\end{equation}
+}%$$
+
+Parameter variance can easily be derived as:
+
+$$\small{
+\begin{align}
+Var(\pmb{\beta}_j^r) &=  \frac{\sigma^2}{d_{j}^2 + \lambda}\\
+&\propto \frac{1}{Var[x_j] + \lambda}
+\end{align}
+}%$$
+
+This is precisely the variance of $\textit{pca}$ parameters with a tuning parameter in the denomominator.
+- The effects of multicolinearity are avoided due to orthogonal inputs: numerator = 1
+- And variance inflation due to low variance features can be adjusted.
+
+---
+
+## Lasso Regression
+
+### Penalizing RSS
+
+Penalize the minimized RSS by the $l_2$-norm
+
+$$\small{
+\begin{align}
+\hat{\pmb{\beta}}^{lasso} &= \operatorname*{arg\,min}_\beta \{\frac{1}{2}\sum_{i=1}^n (y_{i}-\beta_{0}-\sum_{j=1}^px_{i,j}\beta_{j})^2 + \lambda \sum_{j=1}^p \lvert \beta_{j} \rvert \}\\
+\end{align}
+}%$$
+
+### Optimization
+
+Constrain the optimal objective function value by $l_1$-norm
+
+$$\small{
+\begin{align}
+\hat{\pmb{\beta}}^{lasso}&= \operatorname*{arg\,min}_\beta \{\sum_{i=1}^n (y_{i}-\beta_{0}-\sum_{j=1}^px_{i,j}\beta_{j})^2\}, \hspace{5 pt} \textit{s.t.,}\hspace{5 pt}  \sum_{j=1}^p \lvert \beta_{j} \rvert \leq t
+\end{align}
+}%$$
+
+- A quadratic (nonlinear) programming problem.
+- A modified Least Angle Regression (LAR) algorithm is use to compute the Lasso Path efficiently.
+
+--- &twocol
+
+### Pros and Cons
+
+- Ridge regression shrinks the coeffients of collinear variables toward each other and has a grouping effect due to the $l_2$ penalty.
+
+
+- Lasso somewhat arbitrarily selects one in a set of collinear variables for the greatest shrinkage; however, it can perform variable selection.
+
+*** =right 
+- For 2 parameters (feature coefficients) the feasible region is a diamond.
+- The feasible region for parameters is a romboid in higher dimensional space
+- If solution falls on a sharp (non-differentiable) vertices the parameter's value = 0, 
+
+*** =left
+
+![](C:/Users/Matthew Alger/Documents/Data Science/Statistical Machine Learning/slidify_slides/mydeck/lasso_vs_ridge_regression1.png)
+
+---
+
+## Elastic Net Regression
+
+A generalization of both ridge and lasso regression takes convex combinations of each penalty.
+
+Penalize the minimized RSS by convex combinations of each constraint
+
+$${\small
+\begin{align}
+\hat{\pmb{\beta}}^{lasso} &= \{ \operatorname*{arg\,min}_\beta \sum_{i=1}^n (y_{i}-\beta_{0}-\sum_{j=1}^px_{i,j}\beta_{j})^2 + \lambda_1 \sum_{j=1}^p \lvert \beta_{j} \rvert +\lambda_2 \sum_{j=1}^p \lvert \beta_{j} \lvert^2 \}
+\end{align}
+}%$$
+
+Letting  $\alpha = \frac{\lambda_1}{\lambda_1 + \lambda_2}$, for non-negative $\lambda$ coefficients, we obtain the standard optimization problem
+
+$${\small
+\begin{align}
+&= \operatorname*{arg\,min}_\beta \{\sum_{i=1}^n (y_{i}-\beta_{0}-\sum_{j=1}^px_{i,j}\beta_{j})^2\}\\
+& \textit{s.t.,}\hspace{5 pt}  \alpha\sum_{j=1}^p \lvert \beta_{j} \rvert + (1-\alpha)\sum_{j=1}^p \lvert \beta_{j} \rvert^2 \leq t, \hspace{5 pt} for \;0 \leq \alpha \leq 1.
+\end{align}
+}%$$
+
+---
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+
+################## set up the data scale all variables  #################################
+
+#preparing training data
+dat = model.matrix(y.trn ~ . , data = cbind.data.frame(y.trn,x.trn))[ , -1, drop = F]
+dat = cbind(dat, lpsa = scale(y.trn)[,1])
+
+
+#Preparing holdout test data
+dat.tst = model.matrix(y.tst ~ . , data = cbind.data.frame(y.tst,x.tst))[,-1, drop = F]
+y = scale(y.tst)[,1]
+
+#10 times randomly repeated  10-fold cross-validation
+scheme = trainControl(method = "repeatedcv", repeats = 10, selectionFunction = "oneSE")
+
+
+
+
+##################################################################################
+################### Ridge regression #############################################
+
+lambda.grid = seq(.5, .01, length=50)
+alpha = 0
+ridge.grid = expand.grid(.alpha = alpha, .lambda = lambda.grid)
+
+set.seed(12)
+ridge.mods = train(lpsa ~ .,
+                 data = dat,
+                 method = 'glmnet',
+                 family = "gaussian",
+                 metric = "RMSE",
+                 tuneGrid = ridge.grid,
+                 standardize = T,
+                 #preProcess = c("center","scale"),
+                 trControl = scheme,
+                 intercept = F
+                 )
+
+
+
+###################################### end ridge train ######################
+#############################################################################
+
+#############################################################################
+################################### Lasso train #############################
+
+lambda1.grid = seq(.5, .01, length=50)
+alpha = 1
+lasso.grid = expand.grid(.alpha = alpha, .lambda = lambda1.grid)
+
+
+set.seed(12)
+lasso.mods = train(lpsa ~ . ,
+                   data = dat,
+                   method = "glmnet",
+                   family = "gaussian",
+                   metric = "RMSE",
+                   standardize = T,
+                   intercept = F,
+                   trControl = scheme,
+                   tuneGrid = lasso.grid,
+                   maxit = 10000
+                   )
+
+###################################### end lasso train ######################
+#############################################################################
+
+#############################################################################
+####################### elastic net #########################################
+
+lambda1.grid = seq(.5, .01, length=50)
+alpha.grid = seq(.4, .6, .1)
+enet.grid = expand.grid(.alpha = alpha.grid, .lambda = lambda1.grid)
+
+set.seed(12)
+enet.mods = train(lpsa ~ .,
+                  data = dat,
+                  method = "glmnet",
+                  family = "gaussian",
+                  metric = "RMSE",
+                  standardize = T,
+                   #preProcess = c("center","scale"),
+                  trControl = scheme,
+                  tuneGrid = enet.grid,
+                  #thresh = .005,
+                  maxit = 10000,
+                  intercept = F
+                  )
+
+###################################### end enet train ###################
+#########################################################################
+
+############################### end of training #########################
+#########################################################################
+
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+
+############################   tuning parameters   #####################
+
+###ridge
+ridge.final = ridge.mods$finalModel
+ridge.lambda = ridge.final$lambdaOpt
+
+###lasso
+lasso.final = lasso.mods$finalModel
+lasso.lambda = lasso.final$lambdaOpt
+
+###enet
+enet.final = enet.mods$finalModel
+enet.lambda = enet.final$lambdaOpt
+enet.alpha = enet.mods$bestTune$alpha
+
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+
+############################# Getting Coefficients ########################################
+
+###ridge
+ridge.coef = as.data.frame(coef(ridge.mods$finalModel, s = ridge.lambda)[,1])
+colnames(ridge.coef) = "ridge"
+
+###lasso
+lasso.coef = as.data.frame(coef(lasso.mods$finalModel, s = lasso.lambda)[,1])
+colnames(ridge.coef) = "lasso"
+
+###enet
+enet.coef = as.data.frame(coef(enet.mods$finalModel, s = enet.lambda)[,1])
+colnames(ridge.coef) = "enet"
+
+```
+
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+############### testing holdout test data ################################
+
+###ridge
+ridge.err = sqrt(mean((y - predict(ridge.mods, newdata = dat.tst))^2))
+
+###lasso
+lasso.err = sqrt(mean((y - predict(lasso.mods, newdata = dat.tst))^2))
+
+###enet
+enet.err = sqrt(mean((y - predict(enet.mods, newdata = dat.tst))^2))
+
+```
+
+
+```{r,echo=F}
+
+############################### collecting results ###############################
+
+####ridge
+ridge.results = as.data.frame(ridge.mods[4])[which(ridge.mods$results$lambda == ridge.lambda),]
+ridge.results = cbind.data.frame(ridge.results, ridge.err)
+names(ridge.results) = c("Alpha", "Lambda", "CV-RMSE", expression(R^2), "SE(CV-RMSE)", expression(SE(R^2)), "Test-RMSE")
+
+###lasso
+lasso.results = as.data.frame(lasso.mods[4])[which(lasso.mods$results$lambda == lasso.lambda), ]
+lasso.results = cbind.data.frame(lasso.results, lasso.err)
+names(lasso.results) = c("Alpha", "Lambda", "CV-RMSE", expression(R^2), "SE(CV-RMSE)", expression(SE(R^2)), "Test-RMSE")
+
+###enet
+enet.results = as.data.frame(enet.mods$results)[which(enet.mods$results$lambda == enet.lambda),]
+enet.results = cbind.data.frame(enet.results, enet.err)
+names(enet.results) = c("Alpha", "Lambda", "CV-RMSE", expression(R^2), "SE(CV-RMSE)", expression(SE(R^2)), "Test-RMSE")
+
+```
+
+```{r,echo=F}
+##################################### plots ###################################
+
+##### RMSE ######
+
+##ridge
+ridge.RMSE.plot = ggplot(ridge.mods, aes(x=lambda, y= RMSE)) +
+                   geom_vline(xintercept = ridge.lambda) +
+                   labs(title = "Ridge: RMSE", y = NULL, x = "lambda 2") 
+
+##lasso
+lambda.RMSE.plot = ggplot(lasso.mods, aes(x=lambda, y= RMSE)) +
+                    geom_vline(xintercept = lasso.lambda) +
+                    labs(title = "Lasso: RMSE", y = NULL , x = "lambda 1")
+
+##enet
+enet.RMSE.plot = ggplot(enet.mods$results, aes(x=lambda, y= RMSE, colour = as.factor(alpha))) +
+                  geom_line(aes(group = alpha)) +
+                  geom_vline(xintercept = enet.lambda) +
+                  # scale_y_continuous(limits=c(min(enet.mods$results$RMSE),
+                  #                             max(enet.results$`CV-RMSE`) + .01)) +
+                  # scale_x_continuous(limits=c(0, max(enet.results$Lambda) + .1)) +
+                  guides(color=guide_legend(expression(alpha))) +
+                  labs(title = NULL, y = NULL, x = "lambda") +
+                  theme(legend.position = "right")
+
+RMSE.plots = list(ridge.RMSE.plot,lambda.RMSE.plot,enet.RMSE.plot)
+```
+
+```{r, include=F,echo=F}
+
+# ##### Coefficients Paths saved as png ######
+# 
+# library(Cairo)
+# 
+# ###ridge
+# png(filename ="C:/Users/Matthew Alger/Documents/Data Science/Statistical Machine Learning/ridge.path.png",
+#     units = "in",
+#     width = 5,
+#     height = 4,
+#     pointsize = 12,
+#     res = 96
+#     )
+# plot(ridge.final, xvar = "lambda", label = T, main = "Ridge Path")
+# abline(v=log(ridge.lambda))
+# dev.off()
+# 
+# ###lasso
+# png(filename ="C:/Users/Matthew Alger/Documents/Data Science/Statistical Machine Learning/lasso.path.png",
+#     units = "in",
+#     width = 5,
+#     height = 4,
+#     pointsize = 12,
+#     res = 96
+#     )
+# plot(lasso.final, xvar = "lambda", label = T, main = "Lasso Path")
+# abline(v=log(lasso.lambda))
+# dev.off()
+# 
+# ###enet
+# png(filename ="C:/Users/Matthew Alger/Documents/Data Science/Statistical Machine Learning/enet.path.png",
+#     units = "in",
+#     width = 5,
+#     height = 4,
+#     pointsize = 12,
+#     res = 96
+#     )
+# plot(enet.final, xvar = "lambda", label = T, main = "Enet Path")
+# abline(v=log(enet.lambda))
+# dev.off()
+
+
+```
+
+```{r, echo=F}
+
+######################### tabulating results ###################################
+
+reg.coef = t(cbind.data.frame(ridge.coef, lasso.coef, enet.coef))
+row.names(reg.coef) = c("Ridge","Lasso","Enet")
+reg.coef[1:3,1] = mean(y.trn)
+
+ols.coef = as.data.frame(coefficients(ols.f))
+rownames(ols.coef)[8] = "svi1"
+ols.coef = t(ols.coef)
+reg.coef = rbind.data.frame(reg.coef, Ols = ols.coef)
+
+
+reg.results = rbind.data.frame(ridge.results,
+                               lasso.results,
+                               enet.results[which.min(enet.results$`CV-RMSE`),])
+
+row.names(reg.results) = c("Ridge","Lasso","Enet")
+
+```
+
+```{r, fig.pos="top", results='asis',echo=F}
+
+stargazer(reg.coef,
+          type = "html",
+          summary = F,
+          header = F,
+          title = "Regularized Vs. MLE Coefficients",
+          column.sep.width = "2pt")
+
+```
+
+---
+
+
+```{r, fig.height=6, fig.pos="top", echo=F}
+
+
+#install_github("easyGgplot2", "kassambara")
+#library(easyGgplot2)
+library(gridExtra)
+grid.arrange(ridge.RMSE.plot,lambda.RMSE.plot,enet.RMSE.plot, ncol=2,  layout_matrix = cbind(c(1,3), c(2,3)))
+
+
+```
+
+---
+
+```{r, results="asis",echo=F}
+
+
+
+coef.sum = t(rbind.data.frame(dim.redux.coef, reg.coef))
+coef.sum = coef.sum[,c(6,1:5)]
+coef.sum = cbind.data.frame(coef.sum[,1],ols.2.coef,coef.sum[,2:ncol(coef.sum)])
+
+
+RMSE.train = c(ols.f = NA,
+               ols.err = ols.RMSE,
+               pcr.results$RMSE,
+               plsr.results$RMSE,
+               ridge.results$`CV-RMSE`,
+               lasso.results$`CV-RMSE`,
+               enet.results$`CV-RMSE`
+               )
+
+names(RMSE.train) = colnames(coef.sum)
+
+SE.RMSE =  c(NA, cv.ols.se, pcr.results$RMSESD,
+             plsr.results$RMSESD,
+             ridge.results$`SE(CV-RMSE)`,
+             lasso.results$`SE(CV-RMSE)`,
+             enet.results$`SE(CV-RMSE)`
+             )
+
+RMSE.test = c(ols.f.err, ols.err, pcr.err, plsr.err, ridge.err, lasso.err, enet.err)
+
+final.results = round(rbind.data.frame(coef.sum,
+                                'RMSE(train)' = RMSE.train,
+                                'Std Err' = SE.RMSE,
+                                'RMSE(test)' = RMSE.test),3)
+
+final.results[final.results==0] = ""
+
+colnames(final.results)[1:2] = c("Full ols","Redux ols")
+
+
+stargazer(final.results,
+          type = "html",
+          summary = F,
+          header = F,
+          title = "Results"
+          )
+```
+
+---
+
+jjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+
